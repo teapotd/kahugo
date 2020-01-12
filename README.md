@@ -95,7 +95,14 @@ index af33e03..f4d9a10 100644
 +	Warnings bool
 +}
 ```
-The original Hugo readme follows.
+## Additional Dependencies
+
+ | Dependency  | License |
+ | :------------- | :------------- |
+ | [katex.org](https://katex.org/) | MIT License |
+ | [bellard.org/quickjs](https://bellard.org/quickjs/) | MIT License |
+
+# Original Hugo Readme
 
 <img src="https://raw.githubusercontent.com/gohugoio/gohugoioTheme/master/static/images/hugo-logo-wide.svg?sanitize=true" alt="Hugo" width="565">
 
