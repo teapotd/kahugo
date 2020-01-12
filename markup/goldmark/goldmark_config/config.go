@@ -39,6 +39,10 @@ var Default = Config{
 		AutoHeadingIDType: AutoHeadingIDTypeGitHub,
 		Attribute:         true,
 	},
+	Katex: Katex{
+		Enable:   true,
+		Warnings: false,
+	},
 }
 
 // Config configures Goldmark.
@@ -46,6 +50,7 @@ type Config struct {
 	Renderer   Renderer
 	Parser     Parser
 	Extensions Extensions
+	Katex      Katex
 }
 
 type Extensions struct {
@@ -83,4 +88,11 @@ type Parser struct {
 
 	// Enables custom attributes.
 	Attribute bool
+}
+
+type Katex struct {
+	// Enable the Katex extension.
+	Enable bool
+	// Enables warnings.
+	Warnings bool
 }

@@ -1,3 +1,102 @@
+# KaHugo
+
+KaHugo is a fork of Hugo to add server-side [KaTeX](https://katex.org) mathematics rendering, with [a goldmark extension](https://github.com/graemephi/goldmark-qjs-katex). Markdown like this:
+
+```markdown
+$x$
+
+$$
+x
+$$
+```
+
+gets rendered as this:
+```html
+<p><span class="katex">...</span></p>
+<p><span class="katex-display">...</span></p>
+```
+
+You still need to include the KaTeX CSS in your HTML templates.
+
+## Config
+```
+[markup.goldmark.katex]
+    enabled = true
+    warnings = false
+```
+
+## Building
+
+Like the Hugo extended build, you need cgo.
+```
+go build
+```
+
+## Changes
+The changes are pretty small, so here's a complete diff of the repo, minus go.mod, go.sum and this readme.
+
+```diff
+diff --git a/markup/goldmark/convert.go b/markup/goldmark/convert.go
+index d4c3533..b94087e 100644
+--- a/markup/goldmark/convert.go
++++ b/markup/goldmark/convert.go
+@@ -39,6 +39,8 @@ import (
+ 	"github.com/yuin/goldmark/renderer/html"
+ 	"github.com/yuin/goldmark/text"
+ 	"github.com/yuin/goldmark/util"
++
++	"github.com/graemephi/goldmark-qjs-katex"
+ )
+ 
+ // Provider is the package entry point.
+@@ -143,6 +145,10 @@ func newMarkdown(pcfg converter.ProviderConfig) goldmark.Markdown {
+ 		parserOptions = append(parserOptions, parser.WithAttribute())
+ 	}
+ 
++	if cfg.Katex.Enable {
++		extensions = append(extensions, &qjskatex.Extension{EnableWarnings: cfg.Katex.Warnings})
++	}
++
+ 	md := goldmark.New(
+ 		goldmark.WithExtensions(
+ 			extensions...,
+diff --git a/markup/goldmark/goldmark_config/config.go b/markup/goldmark/goldmark_config/config.go
+index af33e03..f4d9a10 100644
+--- a/markup/goldmark/goldmark_config/config.go
++++ b/markup/goldmark/goldmark_config/config.go
+@@ -39,6 +39,10 @@ var Default = Config{
+ 		AutoHeadingIDType: AutoHeadingIDTypeGitHub,
+ 		Attribute:         true,
+ 	},
++	Katex: Katex{
++		Enable:   true,
++		Warnings: false,
++	},
+ }
+ 
+ // Config configures Goldmark.
+@@ -46,6 +50,7 @@ type Config struct {
+ 	Renderer   Renderer
+ 	Parser     Parser
+ 	Extensions Extensions
++	Katex      Katex
+ }
+ 
+ type Extensions struct {
+@@ -84,3 +89,10 @@ type Parser struct {
+ 	// Enables custom attributes.
+ 	Attribute bool
+ }
++
++type Katex struct {
++	// Enable the Katex extension.
++	Enable bool
++	// Enables warnings.
++	Warnings bool
++}
+```
+The original Hugo readme follows.
+
 <img src="https://raw.githubusercontent.com/gohugoio/gohugoioTheme/master/static/images/hugo-logo-wide.svg?sanitize=true" alt="Hugo" width="565">
 
 A Fast and Flexible Static Site Generator built with love by [bep](https://github.com/bep), [spf13](http://spf13.com/) and [friends](https://github.com/gohugoio/hugo/graphs/contributors) in [Go][].
@@ -178,10 +277,3 @@ Hugo stands on the shoulder of many great open source libraries, in lexical orde
  | [golang.org/x/sys](https://golang.org/x/sys) | BSD 3-Clause "New" or "Revised" License |
  | [golang.org/x/text](https://golang.org/x/text) | BSD 3-Clause "New" or "Revised" License
  | [gopkg.in/yaml.v2](https://gopkg.in/yaml.v2) |    Apache License 2.0 |
-
-  
- 
-  
- 
- 
- 
