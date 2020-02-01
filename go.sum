@@ -188,6 +188,8 @@ github.com/gorilla/websocket v1.4.1 h1:q7AeDBpnBk8AogcD4DSag/Ukw/KV+YhzLj2bP5HvK
 github.com/gorilla/websocket v1.4.1/go.mod h1:YR8l580nyteQvAITg2hZ9XVh4b55+EU/adAjf1fMHhE=
 github.com/graemephi/goldmark-qjs-katex v0.1.0 h1:KbBNB8OHC7EEbC+YjppepozBC/nts0WDsf06aiMqi0Q=
 github.com/graemephi/goldmark-qjs-katex v0.1.0/go.mod h1:dvErD0A+vEbYEU/ZblFhTycpa/mzXYpN61qOtkoL8CQ=
+github.com/graemephi/goldmark-qjs-katex v0.1.1 h1:2skPiibjg++QgAUqYQ4wet9T7YzXSSrAyB2N52lgSvs=
+github.com/graemephi/goldmark-qjs-katex v0.1.1/go.mod h1:dvErD0A+vEbYEU/ZblFhTycpa/mzXYpN61qOtkoL8CQ=
 github.com/grpc-ecosystem/go-grpc-middleware v1.0.0/go.mod h1:FiyG127CGDf3tlThmgyCl78X/SZQqEOJBCDaAfeWzPs=
 github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0/go.mod h1:8NvIoxWQoOIhqOTXgfV/d3M/q6VIi02HzZEHgUlZvzk=
 github.com/grpc-ecosystem/grpc-gateway v1.8.5/go.mod h1:vNeuVxBJEsws4ogUvrchl83t/GYV9WGTSLVdBhOQFDY=
