@@ -11,19 +11,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package commands
+package deps
 
 import (
-	"path/filepath"
 	"testing"
 
 	qt "github.com/frankban/quicktest"
 )
 
-// Issue #1133
-func TestNewContentPathSectionWithForwardSlashes(t *testing.T) {
+func TestBuildFlags(t *testing.T) {
 	c := qt.New(t)
-	p, s := newContentPathSection(nil, "/post/new.md")
-	c.Assert(p, qt.Equals, filepath.FromSlash("/post/new.md"))
-	c.Assert(s, qt.Equals, "post")
+	var bf BuildFlags
+	c.Assert(bf.HasLateTemplate.Load(), qt.Equals, false)
+	bf.HasLateTemplate.Store(true)
+	c.Assert(bf.HasLateTemplate.Load(), qt.Equals, true)
 }

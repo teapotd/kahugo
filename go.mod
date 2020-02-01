@@ -5,7 +5,7 @@ require (
 	github.com/BurntSushi/toml v0.3.1
 	github.com/PuerkitoBio/purell v1.1.1
 	github.com/PuerkitoBio/urlesc v0.0.0-20170810143723-de5bf2ad4578 // indirect
-	github.com/alecthomas/chroma v0.7.0
+	github.com/alecthomas/chroma v0.7.1
 	github.com/alecthomas/repr v0.0.0-20181024024818-d37bc2a10ba1 // indirect
 	github.com/armon/go-radix v1.0.0
 	github.com/aws/aws-sdk-go v1.27.1
@@ -21,6 +21,7 @@ require (
 	github.com/fsnotify/fsnotify v1.4.7
 	github.com/gobwas/glob v0.2.3
 	github.com/gohugoio/hugo v0.0.0-00010101000000-000000000000
+	github.com/gohugoio/testmodBuilder v0.0.0-20190924072732-02465a37be06 // indirect
 	github.com/gohugoio/testmodBuilder/mods v0.0.0-20190520184928-c56af20f2e95
 	github.com/google/go-cmp v0.3.2-0.20191028172631-481baca67f93
 	github.com/gorilla/websocket v1.4.1
@@ -37,7 +38,7 @@ require (
 	github.com/muesli/smartcrop v0.3.0
 	github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646 // indirect
 	github.com/nicksnyder/go-i18n v1.10.0
-	github.com/niklasfasching/go-org v0.1.9
+	github.com/niklasfasching/go-org v1.0.0
 	github.com/olekukonko/tablewriter v0.0.4
 	github.com/pelletier/go-toml v1.6.0 // indirect
 	github.com/pkg/errors v0.8.1
@@ -52,10 +53,11 @@ require (
 	github.com/spf13/jwalterweatherman v1.1.0
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.6.1
-	github.com/tdewolff/minify/v2 v2.7.0
-	github.com/yuin/goldmark v1.1.20
+	github.com/tdewolff/minify/v2 v2.6.1
+	github.com/yuin/goldmark v1.1.22
 	github.com/yuin/goldmark-highlighting v0.0.0-20191202084645-78f32c8dd6d5
 	go.opencensus.io v0.22.0 // indirect
+	go.uber.org/atomic v1.4.0
 	gocloud.dev v0.15.0
 	golang.org/x/image v0.0.0-20191214001246-9130b4cfad52
 	golang.org/x/net v0.0.0-20191209160850-c0dbc17a3553 // indirect
