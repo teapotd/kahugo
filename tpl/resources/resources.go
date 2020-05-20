@@ -19,6 +19,8 @@ import (
 	"fmt"
 	"path/filepath"
 
+	"github.com/gohugoio/hugo/resources/postpub"
+
 	"github.com/gohugoio/hugo/common/maps"
 	"github.com/gohugoio/hugo/deps"
 	"github.com/gohugoio/hugo/resources"
@@ -27,6 +29,7 @@ import (
 
 	"github.com/gohugoio/hugo/resources/resource_factories/bundler"
 	"github.com/gohugoio/hugo/resources/resource_factories/create"
+	"github.com/gohugoio/hugo/resources/resource_transformers/babel"
 	"github.com/gohugoio/hugo/resources/resource_transformers/integrity"
 	"github.com/gohugoio/hugo/resources/resource_transformers/minifier"
 	"github.com/gohugoio/hugo/resources/resource_transformers/postcss"
@@ -46,15 +49,21 @@ func New(deps *deps.Deps) (*Namespace, error) {
 		return nil, err
 	}
 
+	minifyClient, err := minifier.New(deps.ResourceSpec)
+	if err != nil {
+		return nil, err
+	}
+
 	return &Namespace{
 		deps:            deps,
 		scssClient:      scssClient,
 		createClient:    create.New(deps.ResourceSpec),
 		bundlerClient:   bundler.New(deps.ResourceSpec),
 		integrityClient: integrity.New(deps.ResourceSpec),
-		minifyClient:    minifier.New(deps.ResourceSpec),
+		minifyClient:    minifyClient,
 		postcssClient:   postcss.New(deps.ResourceSpec),
 		templatesClient: templates.New(deps.ResourceSpec, deps),
+		babelClient:     babel.New(deps.ResourceSpec),
 	}, nil
 }
 
@@ -68,6 +77,7 @@ type Namespace struct {
 	integrityClient *integrity.Client
 	minifyClient    *minifier.Client
 	postcssClient   *postcss.Client
+	babelClient     *babel.Client
 	templatesClient *templates.Client
 }
 
@@ -268,6 +278,30 @@ func (ns *Namespace) PostCSS(args ...interface{}) (resource.Resource, error) {
 	return ns.postcssClient.Process(r, options)
 }
 
+func (ns *Namespace) PostProcess(r resource.Resource) (postpub.PostPublishedResource, error) {
+	return ns.deps.ResourceSpec.PostProcess(r)
+
+}
+
+// Babel processes the given Resource with Babel.
+func (ns *Namespace) Babel(args ...interface{}) (resource.Resource, error) {
+	r, m, err := ns.resolveArgs(args)
+	if err != nil {
+		return nil, err
+	}
+	var options babel.Options
+	if m != nil {
+		options, err = babel.DecodeOptions(m)
+
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return ns.babelClient.Process(r, options)
+
+}
+
 // We allow string or a map as the first argument in some cases.
 func (ns *Namespace) resolveIfFirstArgIsString(args []interface{}) (resources.ResourceTransformer, string, bool) {
 	if len(args) != 2 {
@@ -299,6 +333,9 @@ func (ns *Namespace) resolveArgs(args []interface{}) (resources.ResourceTransfor
 
 	r, ok := args[1].(resources.ResourceTransformer)
 	if !ok {
+		if _, ok := args[1].(map[string]interface{}); !ok {
+			return nil, nil, fmt.Errorf("no Resource provided in transformation")
+		}
 		return nil, nil, fmt.Errorf("type %T not supported in Resource transformations", args[0])
 	}
 

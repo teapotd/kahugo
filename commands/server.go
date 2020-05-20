@@ -340,6 +340,7 @@ func (f *fileServer) createEndpoint(i int) (*http.ServeMux, string, string, erro
 					if err != nil {
 						f.c.logger.ERROR.Println(err)
 					}
+
 					port = 1313
 					if !f.c.paused {
 						port = f.c.Cfg.GetInt("liveReloadPort")
@@ -355,8 +356,13 @@ func (f *fileServer) createEndpoint(i int) (*http.ServeMux, string, string, erro
 				w.Header().Set("Pragma", "no-cache")
 			}
 
+			for _, header := range f.c.serverConfig.Match(r.RequestURI) {
+				w.Header().Set(header.Key, header.Value)
+			}
+
 			if f.c.fastRenderMode && f.c.buildErr == nil {
-				p := r.RequestURI
+
+				p := strings.TrimSuffix(r.RequestURI, "?"+r.URL.RawQuery)
 				if strings.HasSuffix(p, "/") || strings.HasSuffix(p, "html") || strings.HasSuffix(p, "htm") {
 					if !f.c.visitedURLs.Contains(p) {
 						// If not already on stack, re-render that single page.

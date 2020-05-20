@@ -83,15 +83,7 @@ func (c *goldmarkConverter) SanitizeAnchorName(s string) string {
 func newMarkdown(pcfg converter.ProviderConfig) goldmark.Markdown {
 	mcfg := pcfg.MarkupConfig
 	cfg := pcfg.MarkupConfig.Goldmark
-
-	var (
-		extensions = []goldmark.Extender{
-			newLinks(),
-			newTocExtension(),
-		}
-		rendererOptions []renderer.Option
-		parserOptions   []parser.Option
-	)
+	var rendererOptions []renderer.Option
 
 	if cfg.Renderer.HardWraps {
 		rendererOptions = append(rendererOptions, html.WithHardWraps())
@@ -104,6 +96,14 @@ func newMarkdown(pcfg converter.ProviderConfig) goldmark.Markdown {
 	if cfg.Renderer.Unsafe {
 		rendererOptions = append(rendererOptions, html.WithUnsafe())
 	}
+
+	var (
+		extensions = []goldmark.Extender{
+			newLinks(),
+			newTocExtension(rendererOptions),
+		}
+		parserOptions []parser.Option
+	)
 
 	if mcfg.Highlight.CodeFences {
 		extensions = append(extensions, newHighlighting(mcfg.Highlight))

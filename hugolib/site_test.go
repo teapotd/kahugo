@@ -14,17 +14,19 @@
 package hugolib
 
 import (
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/gohugoio/hugo/publisher"
+
 	"github.com/spf13/viper"
 
 	"github.com/markbates/inflect"
-
-	"github.com/gohugoio/hugo/helpers"
 
 	qt "github.com/frankban/quicktest"
 	"github.com/gohugoio/hugo/deps"
@@ -502,70 +504,6 @@ func doTestSectionNaming(t *testing.T, canonify, uglify, pluralize bool) {
 
 }
 
-func TestSkipRender(t *testing.T) {
-	t.Parallel()
-	sources := [][2]string{
-		{filepath.FromSlash("sect/doc1.html"), "---\nmarkup: markdown\n---\n# title\nsome *content*"},
-		{filepath.FromSlash("sect/doc2.html"), "<!doctype html><html><body>more content</body></html>"},
-		{filepath.FromSlash("sect/doc3.md"), "# doc3\n*some* content"},
-		{filepath.FromSlash("sect/doc4.md"), "---\ntitle: doc4\n---\n# doc4\n*some content*"},
-		{filepath.FromSlash("sect/doc5.html"), "<!doctype html><html>{{ template \"head\" }}<body>body5</body></html>"},
-		{filepath.FromSlash("sect/doc6.html"), "<!doctype html><html>{{ template \"head_abs\" }}<body>body5</body></html>"},
-		{filepath.FromSlash("doc7.html"), "<html><body>doc7 content</body></html>"},
-		{filepath.FromSlash("sect/doc8.html"), "---\nmarkup: md\n---\n# title\nsome *content*"},
-		// Issue #3021
-		{filepath.FromSlash("doc9.html"), "<html><body>doc9: {{< myshortcode >}}</body></html>"},
-	}
-
-	cfg, fs := newTestCfg()
-
-	cfg.Set("verbose", true)
-	cfg.Set("canonifyURLs", true)
-	cfg.Set("uglyURLs", true)
-	cfg.Set("baseURL", "http://auth/bub")
-
-	for _, src := range sources {
-		writeSource(t, fs, filepath.Join("content", src[0]), src[1])
-
-	}
-
-	writeSource(t, fs, filepath.Join("layouts", "_default/single.html"), "{{.Content}}")
-	writeSource(t, fs, filepath.Join("layouts", "head"), "<head><script src=\"script.js\"></script></head>")
-	writeSource(t, fs, filepath.Join("layouts", "head_abs"), "<head><script src=\"/script.js\"></script></head>")
-	writeSource(t, fs, filepath.Join("layouts", "shortcodes", "myshortcode.html"), "SHORT")
-
-	buildSingleSite(t, deps.DepsCfg{Fs: fs, Cfg: cfg}, BuildCfg{})
-
-	tests := []struct {
-		doc      string
-		expected string
-	}{
-		{filepath.FromSlash("public/sect/doc1.html"), "<h1 id=\"title\">title</h1>\n<p>some <em>content</em></p>\n"},
-		{filepath.FromSlash("public/sect/doc2.html"), "<!doctype html><html><body>more content</body></html>"},
-		{filepath.FromSlash("public/sect/doc3.html"), "<h1 id=\"doc3\">doc3</h1>\n<p><em>some</em> content</p>\n"},
-		{filepath.FromSlash("public/sect/doc4.html"), "<h1 id=\"doc4\">doc4</h1>\n<p><em>some content</em></p>\n"},
-		{filepath.FromSlash("public/sect/doc5.html"), "<!doctype html><html><head><script src=\"script.js\"></script></head><body>body5</body></html>"},
-		{filepath.FromSlash("public/sect/doc6.html"), "<!doctype html><html><head><script src=\"http://auth/bub/script.js\"></script></head><body>body5</body></html>"},
-		{filepath.FromSlash("public/doc7.html"), "<html><body>doc7 content</body></html>"},
-		{filepath.FromSlash("public/sect/doc8.html"), "<h1 id=\"title\">title</h1>\n<p>some <em>content</em></p>\n"},
-		{filepath.FromSlash("public/doc9.html"), "<html><body>doc9: SHORT</body></html>"},
-	}
-
-	for _, test := range tests {
-		file, err := fs.Destination.Open(test.doc)
-		if err != nil {
-			helpers.PrintFs(fs.Destination, "public", os.Stdout)
-			t.Fatalf("Did not find %s in target.", test.doc)
-		}
-
-		content := helpers.ReaderToString(file)
-
-		if content != test.expected {
-			t.Errorf("%s content expected:\n%q\ngot:\n%q", test.doc, test.expected, content)
-		}
-	}
-}
-
 func TestAbsURLify(t *testing.T) {
 	t.Parallel()
 	sources := [][2]string{
@@ -905,16 +843,16 @@ func TestWeightedTaxonomies(t *testing.T) {
 	writeSourcesToSource(t, "content", fs, sources...)
 	s := buildSingleSite(t, deps.DepsCfg{Fs: fs, Cfg: cfg}, BuildCfg{})
 
-	if s.Taxonomies["tags"]["a"][0].Page.Title() != "foo" {
-		t.Errorf("Pages in unexpected order, 'foo' expected first, got '%v'", s.Taxonomies["tags"]["a"][0].Page.Title())
+	if s.Taxonomies()["tags"]["a"][0].Page.Title() != "foo" {
+		t.Errorf("Pages in unexpected order, 'foo' expected first, got '%v'", s.Taxonomies()["tags"]["a"][0].Page.Title())
 	}
 
-	if s.Taxonomies["categories"]["d"][0].Page.Title() != "bar" {
-		t.Errorf("Pages in unexpected order, 'bar' expected first, got '%v'", s.Taxonomies["categories"]["d"][0].Page.Title())
+	if s.Taxonomies()["categories"]["d"][0].Page.Title() != "bar" {
+		t.Errorf("Pages in unexpected order, 'bar' expected first, got '%v'", s.Taxonomies()["categories"]["d"][0].Page.Title())
 	}
 
-	if s.Taxonomies["categories"]["e"][0].Page.Title() != "bza" {
-		t.Errorf("Pages in unexpected order, 'bza' expected first, got '%v'", s.Taxonomies["categories"]["e"][0].Page.Title())
+	if s.Taxonomies()["categories"]["e"][0].Page.Title() != "bza" {
+		t.Errorf("Pages in unexpected order, 'bza' expected first, got '%v'", s.Taxonomies()["categories"]["e"][0].Page.Title())
 	}
 }
 
@@ -940,6 +878,8 @@ func setupLinkingMockSite(t *testing.T) *Site {
 		{filepath.FromSlash("level2/level3/common.png"), ""},
 
 		{filepath.FromSlash("level2/level3/embedded.dot.md"), ""},
+
+		{filepath.FromSlash("leafbundle/index.md"), ""},
 	}
 
 	cfg, fs := newTestCfg()
@@ -1008,10 +948,13 @@ func TestRefLinking(t *testing.T) {
 		//test empty link, as well as fragment only link
 		{"", "", true, ""},
 	} {
-		checkLinkCase(site, test.link, currentPage, test.relative, test.outputFormat, test.expected, t, i)
 
-		//make sure fragment links are also handled
-		checkLinkCase(site, test.link+"#intro", currentPage, test.relative, test.outputFormat, test.expected+"#intro", t, i)
+		t.Run(fmt.Sprint(i), func(t *testing.T) {
+			checkLinkCase(site, test.link, currentPage, test.relative, test.outputFormat, test.expected, t, i)
+
+			//make sure fragment links are also handled
+			checkLinkCase(site, test.link+"#intro", currentPage, test.relative, test.outputFormat, test.expected+"#intro", t, i)
+		})
 	}
 
 	// TODO: and then the failure cases.
@@ -1022,4 +965,166 @@ func checkLinkCase(site *Site, link string, currentPage page.Page, relative bool
 	if out, err := site.refLink(link, currentPage, relative, outputFormat); err != nil || out != expected {
 		t.Fatalf("[%d] Expected %q from %q to resolve to %q, got %q - error: %s", i, link, currentPage.Path(), expected, out, err)
 	}
+}
+
+// https://github.com/gohugoio/hugo/issues/6952
+func TestRefIssues(t *testing.T) {
+	b := newTestSitesBuilder(t)
+	b.WithContent(
+		"post/b1/index.md", "---\ntitle: pb1\n---\nRef: {{< ref \"b2\" >}}",
+		"post/b2/index.md", "---\ntitle: pb2\n---\n",
+		"post/nested-a/content-a.md", "---\ntitle: ca\n---\n{{< ref \"content-b\" >}}",
+		"post/nested-b/content-b.md", "---\ntitle: ca\n---\n",
+	)
+	b.WithTemplates("index.html", `Home`)
+	b.WithTemplates("_default/single.html", `Content: {{ .Content }}`)
+
+	b.Build(BuildCfg{})
+
+	b.AssertFileContent("public/post/b1/index.html", `Content: <p>Ref: http://example.com/post/b2/</p>`)
+	b.AssertFileContent("public/post/nested-a/content-a/index.html", `Content: http://example.com/post/nested-b/content-b/`)
+
+}
+
+func TestClassCollector(t *testing.T) {
+
+	for _, minify := range []bool{false, true} {
+		t.Run(fmt.Sprintf("minify-%t", minify), func(t *testing.T) {
+			statsFilename := "hugo_stats.json"
+			defer os.Remove(statsFilename)
+
+			b := newTestSitesBuilder(t)
+			b.WithConfigFile("toml", fmt.Sprintf(`
+			
+			
+minify = %t
+
+[build]
+  writeStats = true
+
+`, minify))
+
+			b.WithTemplates("index.html", `
+	
+<div id="el1" class="a b c">Foo</div>
+
+Some text.
+
+<div class="c d e" id="el2">Foo</div>
+
+<span class=z>FOO</span>
+
+ <a class="text-base hover:text-gradient inline-block px-3 pb-1 rounded lowercase" href="{{ .RelPermalink }}">{{ .Title }}</a>
+
+
+`)
+
+			b.WithContent("p1.md", "")
+
+			b.Build(BuildCfg{})
+
+			b.AssertFileContent("hugo_stats.json", `
+ {
+          "htmlElements": {
+            "tags": [
+              "a",
+              "div",
+              "span"
+            ],
+            "classes": [
+              "a",
+              "b",
+              "c",
+              "d",
+              "e",
+              "hover:text-gradient",
+              "inline-block",
+              "lowercase",
+              "pb-1",
+              "px-3",
+              "rounded",
+              "text-base",
+              "z"
+            ],
+            "ids": [
+              "el1",
+              "el2"
+            ]
+          }
+        }
+`)
+
+		})
+
+	}
+}
+
+func TestClassCollectorStress(t *testing.T) {
+	statsFilename := "hugo_stats.json"
+	defer os.Remove(statsFilename)
+
+	b := newTestSitesBuilder(t)
+	b.WithConfigFile("toml", `
+	
+disableKinds = ["home", "section", "taxonomy", "taxonomyTerm" ]
+
+[languages]
+[languages.en]
+[languages.nb]
+[languages.no]
+[languages.sv]
+
+
+[build]
+  writeStats = true
+
+`)
+
+	b.WithTemplates("_default/single.html", `
+<div class="c d e" id="el2">Foo</div>
+
+Some text.
+
+{{ $n := index (shuffle (seq 1 20)) 0 }}
+
+{{ "<span class=_a>Foo</span>" | strings.Repeat $n | safeHTML }}
+
+<div class="{{ .Title }}">
+ABC.
+</div>
+
+<div class="f"></div>
+
+{{ $n := index (shuffle (seq 1 5)) 0 }}
+
+{{ "<hr class=p-3>" | safeHTML }}
+
+`)
+
+	for _, lang := range []string{"en", "nb", "no", "sv"} {
+
+		for i := 100; i <= 999; i++ {
+			b.WithContent(fmt.Sprintf("p%d.%s.md", i, lang), fmt.Sprintf("---\ntitle: p%s%d\n---", lang, i))
+		}
+	}
+
+	b.Build(BuildCfg{})
+
+	contentMem := b.FileContent(statsFilename)
+	cb, err := ioutil.ReadFile(statsFilename)
+	b.Assert(err, qt.IsNil)
+	contentFile := string(cb)
+
+	for _, content := range []string{contentMem, contentFile} {
+
+		stats := &publisher.PublishStats{}
+		b.Assert(json.Unmarshal([]byte(content), stats), qt.IsNil)
+
+		els := stats.HTMLElements
+
+		b.Assert(els.Classes, qt.HasLen, 3606) // (4 * 900) + 4 +2
+		b.Assert(els.Tags, qt.HasLen, 8)
+		b.Assert(els.IDs, qt.HasLen, 1)
+	}
+
 }

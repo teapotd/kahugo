@@ -14,6 +14,8 @@
 package converter
 
 import (
+	"bytes"
+
 	"github.com/gohugoio/hugo/common/loggers"
 	"github.com/gohugoio/hugo/config"
 	"github.com/gohugoio/hugo/identity"
@@ -65,6 +67,18 @@ func (n newConverter) Name() string {
 	return n.name
 }
 
+var NopConverter = new(nopConverter)
+
+type nopConverter int
+
+func (nopConverter) Convert(ctx RenderContext) (Result, error) {
+	return &bytes.Buffer{}, nil
+}
+
+func (nopConverter) Supports(feature identity.Identity) bool {
+	return false
+}
+
 // Converter wraps the Convert method that converts some markup into
 // another format, e.g. Markdown to HTML.
 type Converter interface {
@@ -112,7 +126,7 @@ type DocumentContext struct {
 type RenderContext struct {
 	Src         []byte
 	RenderTOC   bool
-	RenderHooks *hooks.Render
+	RenderHooks *hooks.Renderers
 }
 
 var (

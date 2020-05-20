@@ -14,6 +14,10 @@ menu:
     weight: 31
 ---
 
+Page resources are available for [page bundles]({{< relref "/content-management/page-bundles" >}}) only,
+i.e. a directory with either a `index.md`, or `_index.md` file at its root. Resources are only attached to
+the lowest page they are bundled with, and simple which names does not contain `index.md` are not attached any resource.
+
 ## Properties
 
 ResourceType
@@ -67,7 +71,7 @@ GetMatch
 ```go
 // Using Match/GetMatch to find this images/sunset.jpg ?
 .Resources.Match "images/sun*" ✅
-.Resources.Match "**/Sunset.jpg" ✅
+.Resources.Match "**/sunset.jpg" ✅
 .Resources.Match "images/*.jpg" ✅
 .Resources.Match "**.jpg" ✅
 .Resources.Match "*" 🚫
@@ -78,7 +82,7 @@ GetMatch
 
 ## Page Resources Metadata
 
-Page Resources' metadata is managed from their page's front matter with an array/table parameter named `resources`. You can batch assign values using a [wildcards](http://tldp.org/LDP/GNU-Linux-Tools-Summary/html/x11655.htm).
+The page resources' metadata is managed from the corresponding page's front matter with an array/table parameter named `resources`. You can batch assign values using [wildcards](http://tldp.org/LDP/GNU-Linux-Tools-Summary/html/x11655.htm).
 
 {{% note %}}
 Resources of type `page` get `Title` etc. from their own front matter.
@@ -135,7 +139,7 @@ From the example above:
 - Every docx in the bundle will receive the `word` icon.
 
 {{% warning %}}
-The __order matters__ --- Only the **first set** values of the `title`, `name` and `params`-**keys** will be used. Consecutive parameters will be set only for the ones not already set. For example, in the above example, `.Params.icon` is already first set to `"photo"` in `src = "documents/photo_specs.pdf"`. So that would not get overridden to `"pdf"` by the later set `src = "**.pdf"` rule.
+The __order matters__ --- Only the **first set** values of the `title`, `name` and `params`-**keys** will be used. Consecutive parameters will be set only for the ones not already set. In the above example, `.Params.icon` is first set to `"photo"` in `src = "documents/photo_specs.pdf"`. So that would not get overridden to `"pdf"` by the later set `src = "**.pdf"` rule.
 {{%/ warning %}}
 
 ### The `:counter` placeholder in `name` and `title`

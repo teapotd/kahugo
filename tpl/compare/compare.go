@@ -111,6 +111,8 @@ func (n *Namespace) Eq(first interface{}, others ...interface{}) bool {
 			return vv.Float()
 		case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
 			return vv.Uint()
+		case reflect.String:
+			return vv.String()
 		default:
 			return v
 		}
@@ -250,6 +252,11 @@ func (ns *Namespace) compareGet(a interface{}, b interface{}) (float64, float64)
 		case timeType:
 			left = float64(toTimeUnix(av))
 		}
+	case reflect.Bool:
+		left = 0
+		if av.Bool() {
+			left = 1
+		}
 	}
 
 	bv := reflect.ValueOf(b)
@@ -272,6 +279,11 @@ func (ns *Namespace) compareGet(a interface{}, b interface{}) (float64, float64)
 		switch bv.Type() {
 		case timeType:
 			right = float64(toTimeUnix(bv))
+		}
+	case reflect.Bool:
+		right = 0
+		if bv.Bool() {
+			right = 1
 		}
 	}
 
