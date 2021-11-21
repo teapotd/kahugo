@@ -18,6 +18,8 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/pkg/errors"
+
 	"github.com/gohugoio/hugo/common/types"
 
 	"github.com/gobwas/glob"
@@ -32,13 +34,17 @@ var DefaultBuild = Build{
 	WriteStats:           false,
 }
 
-// Build holds some build related condfiguration.
+// Build holds some build related configuration.
 type Build struct {
 	UseResourceCacheWhen string // never, fallback, always. Default is fallback
 
 	// When enabled, will collect and write a hugo_stats.json with some build
 	// related aggregated data (e.g. CSS class names).
 	WriteStats bool
+
+	// Can be used to toggle off writing of the intellinsense /assets/jsconfig.js
+	// file.
+	NoJSConfigInAssets bool
 }
 
 func (b Build) UseResourceCache(err error) bool {
@@ -82,7 +88,6 @@ type Sitemap struct {
 }
 
 func DecodeSitemap(prototype Sitemap, input map[string]interface{}) Sitemap {
-
 	for key, value := range input {
 		switch key {
 		case "changefreq":
@@ -101,26 +106,35 @@ func DecodeSitemap(prototype Sitemap, input map[string]interface{}) Sitemap {
 
 // Config for the dev server.
 type Server struct {
-	Headers []Headers
+	Headers   []Headers
+	Redirects []Redirect
 
-	compiledInit sync.Once
-	compiled     []glob.Glob
+	compiledInit      sync.Once
+	compiledHeaders   []glob.Glob
+	compiledRedirects []glob.Glob
 }
 
-func (s *Server) Match(pattern string) []types.KeyValueStr {
+func (s *Server) init() {
 	s.compiledInit.Do(func() {
 		for _, h := range s.Headers {
-			s.compiled = append(s.compiled, glob.MustCompile(h.For))
+			s.compiledHeaders = append(s.compiledHeaders, glob.MustCompile(h.For))
+		}
+		for _, r := range s.Redirects {
+			s.compiledRedirects = append(s.compiledRedirects, glob.MustCompile(r.From))
 		}
 	})
+}
 
-	if s.compiled == nil {
+func (s *Server) MatchHeaders(pattern string) []types.KeyValueStr {
+	s.init()
+
+	if s.compiledHeaders == nil {
 		return nil
 	}
 
 	var matches []types.KeyValueStr
 
-	for i, g := range s.compiled {
+	for i, g := range s.compiledHeaders {
 		if g.Match(pattern) {
 			h := s.Headers[i]
 			for k, v := range h.Values {
@@ -134,7 +148,31 @@ func (s *Server) Match(pattern string) []types.KeyValueStr {
 	})
 
 	return matches
+}
 
+func (s *Server) MatchRedirect(pattern string) Redirect {
+	s.init()
+
+	if s.compiledRedirects == nil {
+		return Redirect{}
+	}
+
+	pattern = strings.TrimSuffix(pattern, "index.html")
+
+	for i, g := range s.compiledRedirects {
+		redir := s.Redirects[i]
+
+		// No redirect to self.
+		if redir.To == pattern {
+			return Redirect{}
+		}
+
+		if g.Match(pattern) {
+			return redir
+		}
+	}
+
+	return Redirect{}
 }
 
 type Headers struct {
@@ -142,13 +180,37 @@ type Headers struct {
 	Values map[string]interface{}
 }
 
-func DecodeServer(cfg Provider) *Server {
+type Redirect struct {
+	From   string
+	To     string
+	Status int
+	Force  bool
+}
+
+func (r Redirect) IsZero() bool {
+	return r.From == ""
+}
+
+func DecodeServer(cfg Provider) (*Server, error) {
 	m := cfg.GetStringMap("server")
 	s := &Server{}
 	if m == nil {
-		return s
+		return s, nil
 	}
 
 	_ = mapstructure.WeakDecode(m, s)
-	return s
+
+	for i, redir := range s.Redirects {
+		// Get it in line with the Hugo server.
+		redir.To = strings.TrimSuffix(redir.To, "index.html")
+		if !strings.HasPrefix(redir.To, "https") && !strings.HasSuffix(redir.To, "/") {
+			// There are some tricky infinite loop situations when dealing
+			// when the target does not have a trailing slash.
+			// This can certainly be handled better, but not time for that now.
+			return nil, errors.Errorf("unsupported redirect to value %q in server config; currently this must be either a remote destination or a local folder, e.g. \"/blog/\" or \"/blog/index.html\"", redir.To)
+		}
+		s.Redirects[i] = redir
+	}
+
+	return s, nil
 }

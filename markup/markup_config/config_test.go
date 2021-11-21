@@ -16,7 +16,7 @@ package markup_config
 import (
 	"testing"
 
-	"github.com/spf13/viper"
+	"github.com/gohugoio/hugo/config"
 
 	qt "github.com/frankban/quicktest"
 )
@@ -26,13 +26,18 @@ func TestConfig(t *testing.T) {
 
 	c.Run("Decode", func(c *qt.C) {
 		c.Parallel()
-		v := viper.New()
+		v := config.New()
 
 		v.Set("markup", map[string]interface{}{
 			"goldmark": map[string]interface{}{
 				"renderer": map[string]interface{}{
 					"unsafe": true,
 				},
+			},
+			"asciidocext": map[string]interface{}{
+				"workingFolderCurrent": true,
+				"safeMode":             "save",
+				"extensions":           []string{"asciidoctor-html5s"},
 			},
 		})
 
@@ -41,12 +46,16 @@ func TestConfig(t *testing.T) {
 		c.Assert(err, qt.IsNil)
 		c.Assert(conf.Goldmark.Renderer.Unsafe, qt.Equals, true)
 		c.Assert(conf.BlackFriday.Fractions, qt.Equals, true)
+		c.Assert(conf.Goldmark.Parser.Attribute.Title, qt.Equals, true)
+		c.Assert(conf.Goldmark.Parser.Attribute.Block, qt.Equals, false)
 
+		c.Assert(conf.AsciidocExt.WorkingFolderCurrent, qt.Equals, true)
+		c.Assert(conf.AsciidocExt.Extensions[0], qt.Equals, "asciidoctor-html5s")
 	})
 
 	c.Run("legacy", func(c *qt.C) {
 		c.Parallel()
-		v := viper.New()
+		v := config.New()
 
 		v.Set("blackfriday", map[string]interface{}{
 			"angledQuotes": true,
@@ -56,6 +65,14 @@ func TestConfig(t *testing.T) {
 		v.Set("footnoteReturnLinkContents", "myreturn")
 		v.Set("pygmentsStyle", "hugo")
 		v.Set("pygmentsCodefencesGuessSyntax", true)
+
+		v.Set("markup", map[string]interface{}{
+			"goldmark": map[string]interface{}{
+				"parser": map[string]interface{}{
+					"attribute": false, // Was changed to a struct in 0.81.0
+				},
+			},
+		})
 		conf, err := Decode(v)
 
 		c.Assert(err, qt.IsNil)
@@ -65,6 +82,8 @@ func TestConfig(t *testing.T) {
 		c.Assert(conf.Highlight.Style, qt.Equals, "hugo")
 		c.Assert(conf.Highlight.CodeFences, qt.Equals, true)
 		c.Assert(conf.Highlight.GuessSyntax, qt.Equals, true)
-	})
+		c.Assert(conf.Goldmark.Parser.Attribute.Title, qt.Equals, false)
+		c.Assert(conf.Goldmark.Parser.Attribute.Block, qt.Equals, false)
 
+	})
 }

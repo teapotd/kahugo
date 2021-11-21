@@ -14,8 +14,10 @@
 package markup_config
 
 import (
+	"github.com/gohugoio/hugo/common/maps"
 	"github.com/gohugoio/hugo/config"
 	"github.com/gohugoio/hugo/docshelper"
+	"github.com/gohugoio/hugo/markup/asciidocext/asciidocext_config"
 	"github.com/gohugoio/hugo/markup/blackfriday/blackfriday_config"
 	"github.com/gohugoio/hugo/markup/goldmark/goldmark_config"
 	"github.com/gohugoio/hugo/markup/highlight"
@@ -36,6 +38,8 @@ type Config struct {
 	// Content renderers
 	Goldmark    goldmark_config.Config
 	BlackFriday blackfriday_config.Config
+
+	AsciidocExt asciidocext_config.Config
 }
 
 func Decode(cfg config.Provider) (conf Config, err error) {
@@ -45,6 +49,7 @@ func Decode(cfg config.Provider) (conf Config, err error) {
 	if m == nil {
 		return
 	}
+	normalizeConfig(m)
 
 	err = mapstructure.WeakDecode(m, &conf)
 	if err != nil {
@@ -60,6 +65,22 @@ func Decode(cfg config.Provider) (conf Config, err error) {
 	}
 
 	return
+}
+
+func normalizeConfig(m map[string]interface{}) {
+	v, err := maps.GetNestedParam("goldmark.parser", ".", m)
+	if err != nil {
+		return
+	}
+	vm := maps.ToStringMap(v)
+	// Changed from a bool in 0.81.0
+	if vv, found := vm["attribute"]; found {
+		if vvb, ok := vv.(bool); ok {
+			vm["attribute"] = goldmark_config.ParserAttribute{
+				Title: vvb,
+			}
+		}
+	}
 }
 
 func applyLegacyConfig(cfg config.Provider, conf *Config) error {
@@ -80,7 +101,6 @@ func applyLegacyConfig(cfg config.Provider, conf *Config) error {
 	}
 
 	return nil
-
 }
 
 var Default = Config{
@@ -91,6 +111,8 @@ var Default = Config{
 
 	Goldmark:    goldmark_config.Default,
 	BlackFriday: blackfriday_config.Default,
+
+	AsciidocExt: asciidocext_config.Default,
 }
 
 func init() {

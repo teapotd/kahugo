@@ -1,7 +1,6 @@
 ---
 title: relURL
-description: Given a string, prepends the relative URL according to a page's position in the project directory structure.
-godocref:
+description: Creates a baseURL-relative URL.
 date: 2017-02-01
 publishdate: 2017-02-01
 lastmod: 2017-02-01

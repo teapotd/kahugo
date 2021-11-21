@@ -2,7 +2,6 @@
 title: Introduction to Hugo Templating
 linktitle: Introduction
 description: Hugo uses Go's `html/template` and `text/template` libraries as the basis for the templating.
-godocref: https://golang.org/pkg/html/template/
 date: 2017-02-01
 publishdate: 2017-02-01
 lastmod: 2017-02-25
@@ -66,6 +65,22 @@ Accessing the Page Parameter `bar` defined in a piece of content's [front matter
 
 ```go-html-template
 {{ if or (isset .Params "alt") (isset .Params "caption") }} Caption {{ end }}
+```
+
+#### A Single Statement Can be Split over Multiple Lines
+
+```go-html-template
+{{ if or 
+  (isset .Params "alt") 
+  (isset .Params "caption")
+}}
+```
+
+#### Raw String Literals Can Include Newlines
+
+```go-html-template
+{{ $msg := `Line one.
+Line two.` }}
 ```
 
 ## Variables {#variables}
@@ -245,7 +260,7 @@ If the _map_, _array_, or _slice_ passed into the range is zero-length then the 
 
 ### Conditionals
 
-`if`, `else`, `with`, `or`, and `and` provide the framework for handling conditional logic in Go Templates. Like `range`, each statement is closed with an `{{ end }}`.
+`if`, `else`, `with`, `or`, `and` and `not` provide the framework for handling conditional logic in Go Templates. Like `range`, `if` and `with` statements are closed with an `{{ end }}`.
 
 Go Templates treat the following values as **false**:
 
@@ -357,7 +372,7 @@ The following two examples are functionally the same:
 
 ### Example 2: `index`
 
-The following accesses the page parameter called "disqus_url" and escapes the HTML. This example also uses the [`index` function][index], which is built into Go Templates:
+The following accesses the page parameter called "disqus_url" and escapes the HTML. This example also uses the [`index` function](/functions/index-function/), which is built into Go Templates:
 
 ```go-html-template
 {{ index .Params "disqus_url" | html }}
@@ -646,7 +661,7 @@ Go allows you to do more than what's shown here. Using Hugo's [`where` function]
 [functions]: /functions/ "See the full list of Hugo's templating functions with a quick start reference guide and basic and advanced examples."
 [Go html/template]: https://golang.org/pkg/html/template/ "Godocs references for Go's html templating"
 [gohtmltemplate]: https://golang.org/pkg/html/template/ "Godocs references for Go's html templating"
-[index]: /functions/index/
+[index]: /functions/index-function/
 [math functions]: /functions/math/
 [partials]: /templates/partials/ "Link to the partial templates page inside of the templating section of the Hugo docs"
 [internal_templates]: /templates/internal/

@@ -47,10 +47,12 @@ func TestScratchAdd(t *testing.T) {
 	scratch.Add("scratch", scratch)
 	_, err := scratch.Add("scratch", scratch)
 
+	m := scratch.Values()
+	c.Assert(m, qt.HasLen, 5)
+
 	if err == nil {
 		t.Errorf("Expected error from invalid arithmetic")
 	}
-
 }
 
 func TestScratchAddSlice(t *testing.T) {
@@ -93,7 +95,6 @@ func TestScratchAddTypedSliceToInterfaceSlice(t *testing.T) {
 	_, err := scratch.Add("slice", []int{1, 2})
 	c.Assert(err, qt.IsNil)
 	c.Assert(scratch.Get("slice"), qt.DeepEquals, []int{1, 2})
-
 }
 
 // https://github.com/gohugoio/hugo/issues/5361
@@ -107,7 +108,6 @@ func TestScratchAddDifferentTypedSliceToInterfaceSlice(t *testing.T) {
 	_, err := scratch.Add("slice", []int{1, 2})
 	c.Assert(err, qt.IsNil)
 	c.Assert(scratch.Get("slice"), qt.DeepEquals, []interface{}{"foo", 1, 2})
-
 }
 
 func TestScratchSet(t *testing.T) {
@@ -186,6 +186,20 @@ func TestScratchSetInMap(t *testing.T) {
 	scratch.SetInMap("key", "abc", "Abc (updated)")
 	scratch.SetInMap("key", "def", "Def")
 	c.Assert(scratch.GetSortedMapValues("key"), qt.DeepEquals, []interface{}{0: "Abc (updated)", 1: "Def", 2: "Lux", 3: "Zyx"})
+}
+
+func TestScratchDeleteInMap(t *testing.T) {
+	t.Parallel()
+	c := qt.New(t)
+
+	scratch := NewScratch()
+	scratch.SetInMap("key", "lux", "Lux")
+	scratch.SetInMap("key", "abc", "Abc")
+	scratch.SetInMap("key", "zyx", "Zyx")
+	scratch.DeleteInMap("key", "abc")
+	scratch.SetInMap("key", "def", "Def")
+	scratch.DeleteInMap("key", "lmn") // Do nothing
+	c.Assert(scratch.GetSortedMapValues("key"), qt.DeepEquals, []interface{}{0: "Def", 1: "Lux", 2: "Zyx"})
 }
 
 func TestScratchGetSortedMapValues(t *testing.T) {

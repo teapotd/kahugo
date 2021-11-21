@@ -13,9 +13,8 @@
 package hugolib
 
 import (
-	"testing"
-
 	"fmt"
+	"testing"
 
 	qt "github.com/frankban/quicktest"
 	"github.com/gohugoio/hugo/resources/page"
@@ -28,6 +27,7 @@ func TestDisable(t *testing.T) {
 		config := fmt.Sprintf(`
 baseURL = "http://example.com/blog"
 enableRobotsTXT = true
+ignoreErrors = ["error-disable-taxonomy"]
 disableKinds = [%q]
 `, disableKind)
 
@@ -53,7 +53,16 @@ title: No List
 _build:
   render: false
 ---
-`, "sect/no-publishresources/index.md", `
+`,
+			"sect/no-render-link.md", `
+---
+title: No Render Link
+aliases: ["/link-alias"]
+_build:
+  render: link
+---
+`,
+			"sect/no-publishresources/index.md", `
 ---
 title: No Publish Resources
 _build:
@@ -90,7 +99,6 @@ title: Headless Local Lists Sub
 		b.WithSourceFile("content/sect/no-publishresources/data.json", "DATA")
 
 		return b
-
 	}
 
 	getPage := func(b *sitesBuilder, ref string) page.Page {
@@ -141,7 +149,7 @@ title: Headless Local Lists Sub
 		b.Assert(len(s.Taxonomies()["categories"]), qt.Equals, 0)
 	})
 
-	disableKind = page.KindTaxonomy
+	disableKind = page.KindTerm
 	c.Run("Disable "+disableKind, func(c *qt.C) {
 		b := newSitesBuilder(c, disableKind)
 		b.Build(BuildCfg{})
@@ -153,7 +161,7 @@ title: Headless Local Lists Sub
 		b.Assert(getPage(b, "/categories/mycat"), qt.IsNil)
 	})
 
-	disableKind = page.KindTaxonomyTerm
+	disableKind = page.KindTaxonomy
 	c.Run("Disable "+disableKind, func(c *qt.C) {
 		b := newSitesBuilder(c, disableKind)
 		b.Build(BuildCfg{})
@@ -200,7 +208,6 @@ title: Headless Local Lists Sub
 		b.Assert(getPageInPagePages(sect, "/sect/page.md"), qt.Not(qt.IsNil))
 		b.AssertFileContent("public/sitemap.xml", "sitemap")
 		b.AssertFileContent("public/index.xml", "rss")
-
 	})
 
 	disableKind = kindRSS
@@ -259,7 +266,6 @@ title: Headless Local Lists Sub
 		b.Assert(getPageInSitePages(b, ref), qt.IsNil)
 		sect := getPage(b, "/sect")
 		b.Assert(getPageInPagePages(sect, ref), qt.IsNil)
-
 	})
 
 	c.Run("Build config, local list", func(c *qt.C) {
@@ -302,6 +308,24 @@ title: Headless Local Lists Sub
 		b.Assert(getPageInPagePages(sect, ref), qt.Not(qt.IsNil))
 	})
 
+	c.Run("Build config, no render link", func(c *qt.C) {
+		b := newSitesBuilder(c, disableKind)
+		b.Build(BuildCfg{})
+		ref := "/sect/no-render-link.md"
+		b.Assert(b.CheckExists("public/sect/no-render/index.html"), qt.Equals, false)
+		p := getPage(b, ref)
+		b.Assert(p, qt.Not(qt.IsNil))
+		b.Assert(p.RelPermalink(), qt.Equals, "/blog/sect/no-render-link/")
+		b.Assert(p.OutputFormats(), qt.HasLen, 1)
+		b.Assert(getPageInSitePages(b, ref), qt.Not(qt.IsNil))
+		sect := getPage(b, "/sect")
+		b.Assert(getPageInPagePages(sect, ref), qt.Not(qt.IsNil))
+
+		// https://github.com/gohugoio/hugo/issues/7832
+		// It should still render any aliases.
+		b.AssertFileContent("public/link-alias/index.html", "refresh")
+	})
+
 	c.Run("Build config, no publish resources", func(c *qt.C) {
 		b := newSitesBuilder(c, disableKind)
 		b.Build(BuildCfg{})
@@ -319,7 +343,7 @@ title: Headless Local Lists Sub
 // https://github.com/gohugoio/hugo/issues/6897#issuecomment-587947078
 func TestDisableRSSWithRSSInCustomOutputs(t *testing.T) {
 	b := newTestSitesBuilder(t).WithConfigFile("toml", `
-disableKinds = ["taxonomy", "taxonomyTerm", "RSS"]
+disableKinds = ["term", "taxonomy", "RSS"]
 [outputs]
 home = [ "HTML", "RSS" ]
 `).Build(BuildCfg{})
@@ -328,7 +352,6 @@ home = [ "HTML", "RSS" ]
 	// In Hugo 0.65 we consolidated the code paths and made RSS a pure output format,
 	// but we should make sure to not break existing sites.
 	b.Assert(b.CheckExists("public/index.xml"), qt.Equals, false)
-
 }
 
 func TestBundleNoPublishResources(t *testing.T) {
@@ -391,5 +414,4 @@ Section: MySection|RelPermalink: |Outputs: 0
 
 	b.Assert(b.CheckExists("public/sect/no-render/index.html"), qt.Equals, false)
 	b.Assert(b.CheckExists("public/sect-no-render/index.html"), qt.Equals, false)
-
 }

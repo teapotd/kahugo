@@ -78,6 +78,7 @@ type pageContext interface {
 	posOffset(offset int) text.Position
 	wrapError(err error) error
 	getContentConverter() converter.Converter
+	addDependency(dep identity.Provider)
 }
 
 // wrapErr adds some context to the given error if possible.
@@ -91,6 +92,18 @@ func wrapErr(err error, ctx interface{}) error {
 type pageSiteAdapter struct {
 	p page.Page
 	s *Site
+}
+
+func (pa pageSiteAdapter) GetPageWithTemplateInfo(info tpl.Info, ref string) (page.Page, error) {
+	p, err := pa.GetPage(ref)
+	if p != nil {
+		// Track pages referenced by templates/shortcodes
+		// when in server mode.
+		if im, ok := info.(identity.Manager); ok {
+			im.Add(p)
+		}
+	}
+	return p, err
 }
 
 func (pa pageSiteAdapter) GetPage(ref string) (page.Page, error) {
@@ -127,29 +140,34 @@ func (p *pageState) Eq(other interface{}) bool {
 	return p == pp
 }
 
+func (p *pageState) GetIdentity() identity.Identity {
+	return identity.NewPathIdentity(files.ComponentFolderContent, filepath.FromSlash(p.Path()))
+}
+
 func (p *pageState) GitInfo() *gitmap.GitInfo {
 	return p.gitInfo
 }
 
 // GetTerms gets the terms defined on this page in the given taxonomy.
+// The pages returned will be ordered according to the front matter.
 func (p *pageState) GetTerms(taxonomy string) page.Pages {
-	taxonomy = strings.ToLower(taxonomy)
-	m := p.s.pageMap
-	prefix := cleanTreeKey(taxonomy)
-
-	var self string
-	if p.IsHome() {
-		// TODO(bep) make this less magical, see taxonomyEntries.Insert.
-		self = "/" + page.KindHome
-	} else if p.treeRef != nil {
-		self = p.treeRef.key
+	if p.treeRef == nil {
+		return nil
 	}
+
+	m := p.s.pageMap
+
+	taxonomy = strings.ToLower(taxonomy)
+	prefix := cleanSectionTreeKey(taxonomy)
+	self := strings.TrimPrefix(p.treeRef.key, "/")
 
 	var pas page.Pages
 
 	m.taxonomies.WalkQuery(pageMapQuery{Prefix: prefix}, func(s string, n *contentNode) bool {
-		if _, found := m.taxonomyEntries.Get(s + self); found {
-			pas = append(pas, n.p)
+		key := s + self
+		if tn, found := m.taxonomyEntries.Get(key); found {
+			vi := tn.(*contentNode).viewInfo
+			pas = append(pas, pageWithOrdinal{pageState: n.p, ordinal: vi.ordinal})
 		}
 		return false
 	})
@@ -211,9 +229,9 @@ func (p *pageState) RegularPages() page.Pages {
 
 		switch p.Kind() {
 		case page.KindPage:
-		case page.KindSection, page.KindHome, page.KindTaxonomyTerm:
+		case page.KindSection, page.KindHome, page.KindTaxonomy:
 			pages = p.getPages()
-		case page.KindTaxonomy:
+		case page.KindTerm:
 			all := p.Pages()
 			for _, p := range all {
 				if p.IsPage() {
@@ -225,7 +243,6 @@ func (p *pageState) RegularPages() page.Pages {
 		}
 
 		p.regularPages = pages
-
 	})
 
 	return p.regularPages
@@ -239,9 +256,9 @@ func (p *pageState) Pages() page.Pages {
 		case page.KindPage:
 		case page.KindSection, page.KindHome:
 			pages = p.getPagesAndSections()
-		case page.KindTaxonomy:
+		case page.KindTerm:
 			pages = p.bucket.getTaxonomyEntries()
-		case page.KindTaxonomyTerm:
+		case page.KindTaxonomy:
 			pages = p.bucket.getTaxonomies()
 		default:
 			pages = p.s.Pages()
@@ -340,11 +357,9 @@ func (p *pageState) TranslationKey() string {
 		} else if p.IsNode() {
 			p.translationKey = path.Join(p.Kind(), p.SectionsPath())
 		}
-
 	})
 
 	return p.translationKey
-
 }
 
 // AllTranslations returns all translations, including the current Page.
@@ -375,7 +390,7 @@ func (ps *pageState) initCommonProviders(pp pagePaths) error {
 	return nil
 }
 
-func (p *pageState) createRenderHooks(f output.Format) (*hooks.Renderers, error) {
+func (p *pageState) createRenderHooks(f output.Format) (hooks.Renderers, error) {
 	layoutDescriptor := p.getLayoutDescriptor()
 	layoutDescriptor.RenderingHook = true
 	layoutDescriptor.LayoutOverride = false
@@ -386,12 +401,12 @@ func (p *pageState) createRenderHooks(f output.Format) (*hooks.Renderers, error)
 	layoutDescriptor.Kind = "render-link"
 	templ, templFound, err := p.s.Tmpl().LookupLayout(layoutDescriptor, f)
 	if err != nil {
-		return nil, err
+		return renderers, err
 	}
 	if templFound {
 		renderers.LinkRenderer = hookRenderer{
 			templateHandler: p.s.Tmpl(),
-			Provider:        templ.(tpl.Info),
+			SearchProvider:  templ.(identity.SearchProvider),
 			templ:           templ,
 		}
 	}
@@ -399,12 +414,12 @@ func (p *pageState) createRenderHooks(f output.Format) (*hooks.Renderers, error)
 	layoutDescriptor.Kind = "render-image"
 	templ, templFound, err = p.s.Tmpl().LookupLayout(layoutDescriptor, f)
 	if err != nil {
-		return nil, err
+		return renderers, err
 	}
 	if templFound {
 		renderers.ImageRenderer = hookRenderer{
 			templateHandler: p.s.Tmpl(),
-			Provider:        templ.(tpl.Info),
+			SearchProvider:  templ.(identity.SearchProvider),
 			templ:           templ,
 		}
 	}
@@ -412,17 +427,17 @@ func (p *pageState) createRenderHooks(f output.Format) (*hooks.Renderers, error)
 	layoutDescriptor.Kind = "render-heading"
 	templ, templFound, err = p.s.Tmpl().LookupLayout(layoutDescriptor, f)
 	if err != nil {
-		return nil, err
+		return renderers, err
 	}
 	if templFound {
 		renderers.HeadingRenderer = hookRenderer{
 			templateHandler: p.s.Tmpl(),
-			Provider:        templ.(tpl.Info),
+			SearchProvider:  templ.(identity.SearchProvider),
 			templ:           templ,
 		}
 	}
 
-	return &renderers, nil
+	return renderers, nil
 }
 
 func (p *pageState) getLayoutDescriptor() output.LayoutDescriptor {
@@ -435,7 +450,7 @@ func (p *pageState) getLayoutDescriptor() output.LayoutDescriptor {
 			if len(sections) > 0 {
 				section = sections[0]
 			}
-		case page.KindTaxonomyTerm, page.KindTaxonomy:
+		case page.KindTaxonomy, page.KindTerm:
 			b := p.getTreeRef().n
 			section = b.viewInfo.name.singular
 		default:
@@ -451,7 +466,6 @@ func (p *pageState) getLayoutDescriptor() output.LayoutDescriptor {
 	})
 
 	return p.layoutDescriptor
-
 }
 
 func (p *pageState) resolveTemplate(layouts ...string) (tpl.Template, bool, error) {
@@ -482,7 +496,6 @@ func (p *pageState) initOutputFormat(isRenderingSite bool, idx int) error {
 	}
 
 	return nil
-
 }
 
 // Must be run after the site section tree etc. is built and ready.
@@ -518,7 +531,7 @@ func (p *pageState) renderResources() (err error) {
 					// mode when the same resource is member of different page bundles.
 					toBeDeleted = append(toBeDeleted, i)
 				} else {
-					p.s.Log.ERROR.Printf("Failed to publish Resource for page %q: %s", p.pathOrTitle(), err)
+					p.s.Log.Errorf("Failed to publish Resource for page %q: %s", p.pathOrTitle(), err)
 				}
 			} else {
 				p.s.PathSpec.ProcessingStats.Incr(&p.s.PathSpec.ProcessingStats.Files)
@@ -528,7 +541,6 @@ func (p *pageState) renderResources() (err error) {
 		for _, i := range toBeDeleted {
 			p.deleteResource(i)
 		}
-
 	})
 
 	return
@@ -572,7 +584,7 @@ type renderStringOpts struct {
 	Markup  string
 }
 
-var defualtRenderStringOpts = renderStringOpts{
+var defaultRenderStringOpts = renderStringOpts{
 	Display: "inline",
 	Markup:  "", // Will inherit the page's value when not set.
 }
@@ -583,7 +595,7 @@ func (p *pageState) RenderString(args ...interface{}) (template.HTML, error) {
 	}
 
 	var s string
-	opts := defualtRenderStringOpts
+	opts := defaultRenderStringOpts
 	sidx := 1
 
 	if len(args) == 1 {
@@ -602,6 +614,10 @@ func (p *pageState) RenderString(args ...interface{}) (template.HTML, error) {
 	var err error
 	s, err = cast.ToStringE(args[sidx])
 	if err != nil {
+		return "", err
+	}
+
+	if err = p.pageOutput.initRenderHooks(); err != nil {
 		return "", err
 	}
 
@@ -659,7 +675,6 @@ func (p *pageState) Render(layout ...string) (template.HTML, error) {
 		return "", p.wrapError(errors.Wrapf(err, "failed to execute template %q v", layout))
 	}
 	return template.HTML(res), nil
-
 }
 
 // wrapError adds some more context to the given error if possible/needed
@@ -692,17 +707,15 @@ func (p *pageState) getContentConverter() converter.Converter {
 			markup = "markdown"
 		}
 		p.m.contentConverter, err = p.m.newContentConverter(p, markup, p.m.renderingConfigOverrides)
-
 	})
 
 	if err != nil {
-		p.s.Log.ERROR.Println("Failed to create content converter:", err)
+		p.s.Log.Errorln("Failed to create content converter:", err)
 	}
 	return p.m.contentConverter
 }
 
 func (p *pageState) mapContent(bucket *pagesMapBucket, meta *pageMeta) error {
-
 	s := p.shortcodeState
 
 	rn := &pageContentMap{
@@ -871,7 +884,6 @@ func (p *pageState) parseError(err error, input []byte, offset int) error {
 	}
 	pos := p.posFromInput(input, offset)
 	return herrors.NewFileError("md", -1, pos.LineNumber, pos.ColumnNumber, err)
-
 }
 
 func (p *pageState) pathOrTitle() string {
@@ -933,7 +945,6 @@ func (p *pageState) shiftToOutputFormat(isRenderingSite bool, idx int) error {
 	if isRenderingSite {
 		cp := p.pageOutput.cp
 		if cp == nil {
-
 			// Look for content to reuse.
 			for i := 0; i < len(p.pageOutputs); i++ {
 				if i == idx {
@@ -967,7 +978,7 @@ func (p *pageState) shiftToOutputFormat(isRenderingSite bool, idx int) error {
 //
 // For pages that have a source file, it is returns the path to this file as an
 // absolute path rooted in this site's content dir.
-// For pages that do not (sections witout content page etc.), it returns the
+// For pages that do not (sections without content page etc.), it returns the
 // virtual path, consistent with where you would add a source file.
 func (p *pageState) sourceRef() string {
 	if !p.File().IsZero() {
@@ -995,11 +1006,30 @@ func (s *Site) sectionsFromFile(fi source.File) []string {
 	parts := strings.Split(dirname, helpers.FilePathSeparator)
 
 	if fii, ok := fi.(*fileInfo); ok {
-		if len(parts) > 0 && fii.FileInfo().Meta().Classifier() == files.ContentClassLeaf {
+		if len(parts) > 0 && fii.FileInfo().Meta().Classifier == files.ContentClassLeaf {
 			// my-section/mybundle/index.md => my-section
 			return parts[:len(parts)-1]
 		}
 	}
 
 	return parts
+}
+
+var (
+	_ page.Page         = (*pageWithOrdinal)(nil)
+	_ collections.Order = (*pageWithOrdinal)(nil)
+	_ pageWrapper       = (*pageWithOrdinal)(nil)
+)
+
+type pageWithOrdinal struct {
+	ordinal int
+	*pageState
+}
+
+func (p pageWithOrdinal) Ordinal() int {
+	return p.ordinal
+}
+
+func (p pageWithOrdinal) page() page.Page {
+	return p.pageState
 }

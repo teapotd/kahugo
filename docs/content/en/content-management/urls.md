@@ -38,6 +38,13 @@ permalinks:
 
 Only the content under `posts/` will have the new URL structure. For example, the file `content/posts/sample-entry.md` with `date: 2017-02-27T19:20:00-05:00` in its front matter will render to `public/2017/02/sample-entry/index.html` at build time and therefore be reachable at `https://example.com/2017/02/sample-entry/`.
 
+To configure the `permalinks` option for pages in the "root" section, use **/** as the key:
+
+{{< code-toggle file="config" copy="false" >}}
+permalinks:
+  /: /:year/:month/:filename/
+{{< /code-toggle >}}
+
 If the standard date-based permalink configuration does not meet your needs, you can also format URL segments using [Go time formatting directives](https://golang.org/pkg/time/#Time.Format). For example, a URL structure with two digit years and month and day digits without zero padding can be accomplished with:
 
 {{< code-toggle file="config" copy="false" >}}
@@ -76,7 +83,7 @@ The following is a list of values that can be used in a `permalink` definition i
 : the content's section
 
 `:sections`
-: the content's sections hierarchy
+: the content's sections hierarchy. {{< new-in "0.83.0" >}} Since Hugo 0.83 you can use a selection of the sections using _slice syntax_: `:sections[1:]` includes all but the first, `:sections[:last]` includes all but the last, `:sections[last]` includes only the last, `:sections[1:2]` includes section 2 and 3. Note that this slice access will not throw any out-of-bounds errors, so you don't have to be exact.
 
 `:title`
 : the content's title
@@ -195,14 +202,14 @@ The following demonstrates the concept:
 
 ```
 content/posts/_index.md
-=> example.com/posts/index.html
+=> example.com/posts/
 content/posts/post-1.md
 => example.com/posts/post-1/
 ```
 
 ## Ugly URLs
 
-If you would like to have what are often referred to as "ugly URLs" (e.g., example.com/urls.html), set `uglyurls = true` or `uglyurls: true` in your site's `config.toml` or `config.yaml`, respectively. You can also use the `--uglyURLs=true` [flag from the command line][usage] with `hugo` or `hugo server`.
+If you would like to have what are often referred to as "ugly URLs" (e.g., example.com/urls.html), set `uglyurls = true` or `uglyurls: true` in your site's `config.toml` or `config.yaml`, respectively. You can also set the `HUGO_UGLYURLS` environment variable to `true` when running `hugo` or `hugo server`.
 
 If you want a specific piece of content to have an exact URL, you can specify this in the [front matter][] under the `url` key. The following are examples of the same content directory and what the eventual URL structure will be when Hugo runs with its default behavior.
 

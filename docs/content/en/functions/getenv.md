@@ -1,7 +1,6 @@
 ---
 title: getenv
 description: Returns the value of an environment variable.
-godocref:
 date: 2017-02-01
 publishdate: 2017-02-01
 lastmod: 2017-02-01
@@ -20,7 +19,7 @@ aliases: []
 
 Takes a string containing the name of the variable as input. Returns
 an empty string if the variable is not set, otherwise returns the
-value of the variable. 
+value of the variable.
 
 ```
 {{ getenv "HOME" }}

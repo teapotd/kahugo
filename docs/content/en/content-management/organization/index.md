@@ -23,9 +23,9 @@ Hugo `0.32` announced page-relative images and other resources packaged into `Pa
 
 These terms are connected, and you also need to read about [Page Resources]({{< relref "/content-management/page-resources" >}}) and [Image Processing]({{< relref "/content-management/image-processing" >}}) to get the full picture.
 
-{{% imgproc 1-featured Resize "300x" %}}
+{{< imgproc 1-featured Resize "300x" >}}
 The illustration shows 3 bundles. Note that the home page bundle cannot contain other content pages, but other files (images etc.) are fine.
-{{% /imgproc %}}
+{{< /imgproc >}}
 
 
 {{% note %}}
@@ -33,7 +33,7 @@ The bundle documentation is **work in progress**. We will publish more comprehen
 {{% /note %}}
 
 
-# Organization of Content Source
+## Organization of Content Source
 
 
 In Hugo, your content should be organized in a manner that reflects the rendered website.
@@ -112,7 +112,7 @@ Single content files in each of your sections are going to be rendered as [singl
 content/posts/my-first-hugo-post.md
 ```
 
-At the time Hugo builds your site, the content will be output to the following destination:
+When Hugo builds your site, the content will be outputted to the following destination:
 
 ```
 

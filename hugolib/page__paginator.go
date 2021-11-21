@@ -59,7 +59,6 @@ func (p *pagePaginator) Paginate(seq interface{}, options ...interface{}) (*page
 		}
 
 		p.current = paginator.Pagers()[0]
-
 	})
 
 	if initErr != nil {
@@ -89,7 +88,7 @@ func (p *pagePaginator) Paginator(options ...interface{}) (*page.Pager, error) {
 			// section. To avoid the default paginators for the home page
 			// changing in the wild, we make this a special case.
 			pages = p.source.s.RegularPages()
-		case page.KindTaxonomy, page.KindTaxonomyTerm:
+		case page.KindTerm, page.KindTaxonomy:
 			pages = p.source.Pages()
 		default:
 			pages = p.source.RegularPages()
@@ -102,7 +101,6 @@ func (p *pagePaginator) Paginator(options ...interface{}) (*page.Pager, error) {
 		}
 
 		p.current = paginator.Pagers()[0]
-
 	})
 
 	if initErr != nil {

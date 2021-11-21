@@ -25,18 +25,20 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"strings"
+	"time"
+
+	"github.com/gohugoio/hugo/common/hexec"
+
+	hglob "github.com/gohugoio/hugo/hugofs/glob"
 
 	"github.com/gobwas/glob"
-	hglob "github.com/gohugoio/hugo/hugofs/glob"
 
 	"github.com/gohugoio/hugo/hugofs"
 
 	"github.com/gohugoio/hugo/hugofs/files"
 
 	"github.com/gohugoio/hugo/common/loggers"
-
-	"strings"
-	"time"
 
 	"github.com/gohugoio/hugo/config"
 
@@ -48,9 +50,7 @@ import (
 	"github.com/spf13/afero"
 )
 
-var (
-	fileSeparator = string(os.PathSeparator)
-)
+var fileSeparator = string(os.PathSeparator)
 
 const (
 	goBinaryStatusOK goBinaryStatus = iota
@@ -92,7 +92,6 @@ func NewClient(cfg ClientConfig) *Client {
 	if cfg.CacheDir != "" {
 		// Module cache stored below $GOPATH/pkg
 		config.SetEnvVars(&env, "GOPATH", cfg.CacheDir)
-
 	}
 
 	logger := cfg.Logger
@@ -100,19 +99,28 @@ func NewClient(cfg ClientConfig) *Client {
 		logger = loggers.NewWarningLogger()
 	}
 
+	var noVendor glob.Glob
+	if cfg.ModuleConfig.NoVendor != "" {
+		noVendor, _ = hglob.GetGlob(hglob.NormalizePath(cfg.ModuleConfig.NoVendor))
+	}
+
 	return &Client{
 		fs:                fs,
 		ccfg:              cfg,
 		logger:            logger,
+		noVendor:          noVendor,
 		moduleConfig:      mcfg,
 		environ:           env,
-		GoModulesFilename: goModFilename}
+		GoModulesFilename: goModFilename,
+	}
 }
 
 // Client contains most of the API provided by this package.
 type Client struct {
 	fs     afero.Fs
-	logger *loggers.Logger
+	logger loggers.Logger
+
+	noVendor glob.Glob
 
 	ccfg ClientConfig
 
@@ -156,7 +164,6 @@ func (c *Client) Graph(w io.Writer) error {
 				// Local dir.
 				dep += " => " + replace.Dir()
 			}
-
 		}
 		fmt.Fprintln(w, prefix+dep)
 	}
@@ -219,11 +226,21 @@ func (c *Client) Vendor() error {
 			// This is the project.
 			continue
 		}
-		// We respect the --ignoreVendor flag even for the vendor command.
+
+		if !c.shouldVendor(t.Path()) {
+			continue
+		}
+
 		if !t.IsGoMod() && !t.Vendor() {
 			// We currently do not vendor components living in the
 			// theme directory, see https://github.com/gohugoio/hugo/issues/5993
 			continue
+		}
+
+		// See https://github.com/gohugoio/hugo/issues/8239
+		// This is an error situation. We need something to vendor.
+		if t.Mounts() == nil {
+			return errors.Errorf("cannot vendor module %q, need at least one mount", t.Path())
 		}
 
 		fmt.Fprintln(&modulesContent, "# "+t.Path()+" "+t.Version())
@@ -301,7 +318,7 @@ func (c *Client) Get(args ...string) error {
 			}
 			var args []string
 			if update {
-				args = []string{"-u"}
+				args = append(args, "-u")
 			}
 			args = append(args, m.Path)
 			if err := c.get(args...); err != nil {
@@ -316,7 +333,19 @@ func (c *Client) Get(args ...string) error {
 }
 
 func (c *Client) get(args ...string) error {
-	if err := c.runGo(context.Background(), c.logger.Out, append([]string{"get"}, args...)...); err != nil {
+	var hasD bool
+	for _, arg := range args {
+		if arg == "-d" {
+			hasD = true
+			break
+		}
+	}
+	if !hasD {
+		// go get without the -d flag does not make sense to us, as
+		// it will try to build and install go packages.
+		args = append([]string{"-d"}, args...)
+	}
+	if err := c.runGo(context.Background(), c.logger.Out(), append([]string{"get"}, args...)...); err != nil {
 		errors.Wrapf(err, "failed to get %q", args)
 	}
 	return nil
@@ -326,7 +355,7 @@ func (c *Client) get(args ...string) error {
 // If path is empty, Go will try to guess.
 // If this succeeds, this project will be marked as Go Module.
 func (c *Client) Init(path string) error {
-	err := c.runGo(context.Background(), c.logger.Out, "mod", "init", path)
+	err := c.runGo(context.Background(), c.logger.Out(), "mod", "init", path)
 	if err != nil {
 		return errors.Wrap(err, "failed to init modules")
 	}
@@ -342,9 +371,8 @@ var verifyErrorDirRe = regexp.MustCompile(`dir has been modified \((.*?)\)`)
 // which are stored in a local downloaded source cache, have not been
 // modified since being downloaded.
 func (c *Client) Verify(clean bool) error {
-	// TODO1 add path to mod clean
+	// TODO(bep) add path to mod clean
 	err := c.runVerify()
-
 	if err != nil {
 		if clean {
 			m := verifyErrorDirRe.FindAllStringSubmatch(err.Error(), -1)
@@ -390,7 +418,7 @@ func (c *Client) Clean(pattern string) error {
 		}
 		_, err = hugofs.MakeReadableAndRemoveAllModulePkgDir(c.fs, m.Dir)
 		if err == nil {
-			c.logger.FEEDBACK.Printf("hugo: cleaned module cache for %q", m.Path)
+			c.logger.Printf("hugo: cleaned module cache for %q", m.Path)
 		}
 	}
 	return err
@@ -409,35 +437,86 @@ func (c *Client) listGoMods() (goModules, error) {
 		return nil, nil
 	}
 
-	out := ioutil.Discard
-	err := c.runGo(context.Background(), out, "mod", "download")
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to download modules")
+	downloadModules := func(modules ...string) error {
+		args := []string{"mod", "download"}
+		args = append(args, modules...)
+		out := ioutil.Discard
+		err := c.runGo(context.Background(), out, args...)
+		if err != nil {
+			return errors.Wrap(err, "failed to download modules")
+		}
+		return nil
 	}
 
-	b := &bytes.Buffer{}
-	err = c.runGo(context.Background(), b, "list", "-m", "-json", "all")
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to list modules")
+	if err := downloadModules(); err != nil {
+		return nil, err
+	}
+
+	listAndDecodeModules := func(handle func(m *goModule) error, modules ...string) error {
+		b := &bytes.Buffer{}
+		args := []string{"list", "-m", "-json"}
+		if len(modules) > 0 {
+			args = append(args, modules...)
+		} else {
+			args = append(args, "all")
+		}
+		err := c.runGo(context.Background(), b, args...)
+		if err != nil {
+			return errors.Wrap(err, "failed to list modules")
+		}
+
+		dec := json.NewDecoder(b)
+		for {
+			m := &goModule{}
+			if err := dec.Decode(m); err != nil {
+				if err == io.EOF {
+					break
+				}
+				return errors.Wrap(err, "failed to decode modules list")
+			}
+
+			if err := handle(m); err != nil {
+				return err
+			}
+		}
+		return nil
 	}
 
 	var modules goModules
-
-	dec := json.NewDecoder(b)
-	for {
-		m := &goModule{}
-		if err := dec.Decode(m); err != nil {
-			if err == io.EOF {
-				break
-			}
-			return nil, errors.Wrap(err, "failed to decode modules list")
-		}
-
+	err := listAndDecodeModules(func(m *goModule) error {
 		modules = append(modules, m)
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	// From Go 1.17, go lazy loads transitive dependencies.
+	// That does not work for us.
+	// So, download these modules and update the Dir in the modules list.
+	var modulesToDownload []string
+	for _, m := range modules {
+		if m.Dir == "" {
+			modulesToDownload = append(modulesToDownload, fmt.Sprintf("%s@%s", m.Path, m.Version))
+		}
+	}
+
+	if len(modulesToDownload) > 0 {
+		if err := downloadModules(modulesToDownload...); err != nil {
+			return nil, err
+		}
+		err := listAndDecodeModules(func(m *goModule) error {
+			if mm := modules.GetByPath(m.Path); mm != nil {
+				mm.Dir = m.Dir
+			}
+			return nil
+		}, modulesToDownload...)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return modules, err
-
 }
 
 func (c *Client) rewriteGoMod(name string, isGoMod map[string]bool) error {
@@ -502,7 +581,6 @@ func (c *Client) rewriteGoModRewrite(name string, isGoMod map[string]bool) ([]by
 	}
 
 	return b.Bytes(), nil
-
 }
 
 func (c *Client) rmVendorDir(vendorDir string) error {
@@ -526,15 +604,15 @@ func (c *Client) runGo(
 	ctx context.Context,
 	stdout io.Writer,
 	args ...string) error {
-
 	if c.goBinaryStatus != 0 {
 		return nil
 	}
 
-	//defer c.logger.PrintTimer(time.Now(), fmt.Sprint(args))
-
 	stderr := new(bytes.Buffer)
-	cmd := exec.CommandContext(ctx, "go", args...)
+	cmd, err := hexec.SafeCommandContext(ctx, "go", args...)
+	if err != nil {
+		return err
+	}
 
 	cmd.Env = c.environ
 	cmd.Dir = c.ccfg.WorkingDir
@@ -549,7 +627,14 @@ func (c *Client) runGo(
 
 		if strings.Contains(stderr.String(), "invalid version: unknown revision") {
 			// See https://github.com/gohugoio/hugo/issues/6825
-			c.logger.FEEDBACK.Println(`hugo: you need to manually edit go.mod to resolve the unknown revision.`)
+			c.logger.Println(`An unknown revision most likely means that someone has deleted the remote ref (e.g. with a force push to GitHub).
+To resolve this, you need to manually edit your go.mod file and replace the version for the module in question with a valid ref.
+
+The easiest is to just enter a valid branch name there, e.g. master, which would be what you put in place of 'v0.5.1' in the example below.
+
+require github.com/gohugoio/hugo-mod-jslibs/instantpage v0.5.1
+
+If you then run 'hugo mod graph' it should resolve itself to the most recent version (or commit if no semver versions are available).`)
 		}
 
 		_, ok := err.(*exec.ExitError)
@@ -598,17 +683,40 @@ func (c *Client) tidy(mods Modules, goModOnly bool) error {
 	return nil
 }
 
+func (c *Client) shouldVendor(path string) bool {
+	return c.noVendor == nil || !c.noVendor.Match(path)
+}
+
+func (c *Client) createThemeDirname(modulePath string, isProjectMod bool) (string, error) {
+	invalid := errors.Errorf("invalid module path %q; must be relative to themesDir when defined outside of the project", modulePath)
+
+	modulePath = filepath.Clean(modulePath)
+	if filepath.IsAbs(modulePath) {
+		if isProjectMod {
+			return modulePath, nil
+		}
+		return "", invalid
+	}
+
+	moduleDir := filepath.Join(c.ccfg.ThemesDir, modulePath)
+	if !isProjectMod && !strings.HasPrefix(moduleDir, c.ccfg.ThemesDir) {
+		return "", invalid
+	}
+	return moduleDir, nil
+}
+
 // ClientConfig configures the module Client.
 type ClientConfig struct {
 	Fs     afero.Fs
-	Logger *loggers.Logger
+	Logger loggers.Logger
 
 	// If set, it will be run before we do any duplicate checks for modules
 	// etc.
 	HookBeforeFinalize func(m *ModulesConfig) error
 
-	// Ignore any _vendor directory.
-	IgnoreVendor bool
+	// Ignore any _vendor directory for module paths matching the given pattern.
+	// This can be nil.
+	IgnoreVendor glob.Glob
 
 	// Absolute path to the project dir.
 	WorkingDir string
@@ -616,8 +724,15 @@ type ClientConfig struct {
 	// Absolute path to the project's themes dir.
 	ThemesDir string
 
+	// Eg. "production"
+	Environment string
+
 	CacheDir     string // Module cache
 	ModuleConfig Config
+}
+
+func (c ClientConfig) shouldIgnoreVendor(path string) bool {
+	return c.IgnoreVendor != nil && c.IgnoreVendor.Match(path)
 }
 
 type goBinaryStatus int

@@ -2,7 +2,6 @@
 title: Shortcodes
 linktitle:
 description: Shortcodes are simple snippets inside your content files calling built-in or custom templates.
-godocref:
 date: 2017-02-01
 publishdate: 2017-02-01
 lastmod: 2019-11-07
@@ -21,7 +20,7 @@ toc: true
 
 ## What a Shortcode is
 
-Hugo loves Markdown because of its simple content format, but there are times when Markdown falls short. Often, content authors are forced to add raw HTML (e.g., video `<iframes>`) to Markdown content. We think this contradicts the beautiful simplicity of Markdown's syntax.
+Hugo loves Markdown because of its simple content format, but there are times when Markdown falls short. Often, content authors are forced to add raw HTML (e.g., video `<iframe>`'s) to Markdown content. We think this contradicts the beautiful simplicity of Markdown's syntax.
 
 Hugo created **shortcodes** to circumvent these limitations.
 
@@ -64,7 +63,7 @@ and a new line with a "quoted string".` */>}}
 
 ### Shortcodes with Markdown
 
-In Hugo `0.55` we changed how the `%` delimiter works. Shortcodes using the `%` as the outer-most delimiter will now be fully rendered when sent to the content renderer (e.g. Blackfriday for Markdown), meaning they can be part of the generated table of contents, footnotes, etc.
+In Hugo `0.55` we changed how the `%` delimiter works. Shortcodes using the `%` as the outer-most delimiter will now be fully rendered when sent to the content renderer. They can be part of the generated table of contents, footnotes, etc.
 
 If you want the old behavior, you can put the following line in the start of your shortcode template:
 
@@ -255,6 +254,11 @@ Using the preceding `instagram` with `hidecaption` example above, the following 
 {{< instagram BWNjjyYFxVx hidecaption >}}
 
 
+
+{{% note %}}
+The `instagram`-shortcode refers an endpoint of Instagram's API, that's deprecated since October 24th, 2020. Thus, no images can be fetched from this API endpoint, resulting in an error when the `instagram`-shortcode is used. For more information please have a look at GitHub issue [#7879](https://github.com/gohugoio/hugo/issues/7879).
+{{% /note %}}
+
 ### `param`
 
 Gets a value from the current `Page's` params set in front matter, with a fall back to the site param value. It will log an `ERROR` if the param with the given key could not be found in either.
@@ -297,8 +301,8 @@ Read a more extensive description of `ref` and `relref` in the [cross references
 Assuming that standard Hugo pretty URLs are turned on.
 
 ```
-<a href="/blog/neat">Neat</a>
-<a href="/about/#who:c28654c202e73453784cfd2c5ab356c0">Who</a>
+<a href="https://example.com/blog/neat">Neat</a>
+<a href="/about/#who">Who</a>
 ```
 
 ### `tweet`
@@ -306,15 +310,15 @@ Assuming that standard Hugo pretty URLs are turned on.
 You want to include a single tweet into your blog post? Everything you need is the URL of the tweet:
 
 ```
-https://twitter.com/spf13/status/877500564405444608
+https://twitter.com/SanDiegoZoo/status/1453110110599868418
 ```
 
 #### Example `tweet` Input
 
-Pass the tweet's ID from the URL as a parameter to the `tweet` shortcode:
+Pass the tweet's user (case-insensitive) and id from the URL as parameters to the `tweet` shortcode.
 
 {{< code file="example-tweet-input.md" >}}
-{{</* tweet 877500564405444608 */>}}
+{{</* tweet user="SanDiegoZoo" id="1453110110599868418" */>}}
 {{< /code >}}
 
 #### Example `tweet` Output
@@ -322,14 +326,14 @@ Pass the tweet's ID from the URL as a parameter to the `tweet` shortcode:
 Using the preceding `tweet` example, the following HTML will be added to your rendered website's markup:
 
 {{< output file="example-tweet-output.html" >}}
-{{< tweet 877500564405444608 >}}
+{{< tweet user="SanDiegoZoo" id="1453110110599868418" >}}
 {{< /output >}}
 
 #### Example `tweet` Display
 
 Using the preceding `tweet` example, the following simulates the displayed experience for visitors to your website. Naturally, the final display will be contingent on your stylesheets and surrounding markup.
 
-{{< tweet 877500564405444608 >}}
+{{< tweet user="SanDiegoZoo" id="1453110110599868418" >}}
 
 ### `vimeo`
 
@@ -393,6 +397,13 @@ Furthermore, you can automatically start playback of the embedded video by setti
 {{</* youtube id="w7Ft2ymGmfc" autoplay="true" */>}}
 {{< /code >}}
 
+For [accessibility reasons](https://dequeuniversity.com/tips/provide-iframe-titles), it's best to provide a title for your YouTube video.  You  can do this using the shortcode by providing a `title` parameter. If no title is provided, a default of "YouTube Video" will be used.
+
+{{< code file="example-youtube-input-with-title.md" >}}
+{{</* youtube id="w7Ft2ymGmfc" title="A New Hugo Site in Under Two Minutes" */>}}
+{{< /code >}}
+
+
 #### Example `youtube` Output
 
 Using the preceding `youtube` example, the following HTML will be added to your rendered website's markup:
@@ -418,12 +429,11 @@ To learn more about creating custom shortcodes, see the [shortcode template docu
 [`figure` shortcode]: #figure
 [contentmanagementsection]: /content-management/formats/
 [examplegist]: https://gist.github.com/spf13/7896402
-[figureelement]: http://html5doctor.com/the-figure-figcaption-elements/ "An article from HTML5 doctor discussing the fig and figcaption elements."
+[figureelement]: https://html5doctor.com/the-figure-figcaption-elements/ "An article from HTML5 doctor discussing the fig and figcaption elements."
 [Hugo and the GDPR]: /about/hugo-and-gdpr/
 [Instagram]: https://www.instagram.com/
 [pagevariables]: /variables/page/
 [partials]: /templates/partials/
-[Pygments]: https://pygments.org/
 [quickstart]: /getting-started/quick-start/
 [sctemps]: /templates/shortcode-templates/
 [scvars]: /variables/shortcodes/

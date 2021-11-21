@@ -2,7 +2,6 @@
 title: seq
 # linktitle:
 description: Creates a sequence of integers.
-godocref:
 date: 2017-02-01
 publishdate: 2017-02-01
 lastmod: 2017-02-01
@@ -48,4 +47,4 @@ $indexStartingAt1 := (add $index 1)
 ```
 
 
-[GNU's seq]: http://www.gnu.org/software/coreutils/manual/html_node/seq-invocation.html#seq-invocation
+[GNU's seq]: https://www.gnu.org/software/coreutils/manual/html_node/seq-invocation.html#seq-invocation

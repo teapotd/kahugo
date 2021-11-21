@@ -21,6 +21,9 @@ import (
 	"path/filepath"
 	"runtime/debug"
 
+	"github.com/gohugoio/hugo/markup/goldmark/internal/extensions/attributes"
+	"github.com/yuin/goldmark/ast"
+
 	"github.com/gohugoio/hugo/identity"
 
 	"github.com/pkg/errors"
@@ -64,9 +67,7 @@ func (p provide) New(cfg converter.ProviderConfig) (converter.Provider, error) {
 	}), nil
 }
 
-var (
-	_ converter.AnchorNameSanitizer = (*goldmarkConverter)(nil)
-)
+var _ converter.AnchorNameSanitizer = (*goldmarkConverter)(nil)
 
 type goldmarkConverter struct {
 	md  goldmark.Markdown
@@ -141,8 +142,12 @@ func newMarkdown(pcfg converter.ProviderConfig) goldmark.Markdown {
 		parserOptions = append(parserOptions, parser.WithAutoHeadingID())
 	}
 
-	if cfg.Parser.Attribute {
+	if cfg.Parser.Attribute.Title {
 		parserOptions = append(parserOptions, parser.WithAttribute())
+	}
+
+	if cfg.Parser.Attribute.Block {
+		extensions = append(extensions, attributes.New())
 	}
 
 	if cfg.Katex.Enable {
@@ -162,7 +167,6 @@ func newMarkdown(pcfg converter.ProviderConfig) goldmark.Markdown {
 	)
 
 	return md
-
 }
 
 var _ identity.IdentitiesProvider = (*converterResult)(nil)
@@ -208,7 +212,7 @@ type renderContext struct {
 type renderContextData interface {
 	RenderContext() converter.RenderContext
 	DocumentContext() converter.DocumentContext
-	AddIdentity(id identity.Identity)
+	AddIdentity(id identity.Provider)
 }
 
 type renderContextDataHolder struct {
@@ -225,7 +229,7 @@ func (ctx *renderContextDataHolder) DocumentContext() converter.DocumentContext 
 	return ctx.dctx
 }
 
-func (ctx *renderContextDataHolder) AddIdentity(id identity.Identity) {
+func (ctx *renderContextDataHolder) AddIdentity(id identity.Provider) {
 	ctx.ids.Add(id)
 }
 
@@ -273,7 +277,6 @@ func (c *goldmarkConverter) Convert(ctx converter.RenderContext) (result convert
 		ids:    rcx.ids.GetIdentities(),
 		toc:    pctx.TableOfContents(),
 	}, nil
-
 }
 
 var featureSet = map[identity.Identity]bool{
@@ -313,29 +316,52 @@ func newHighlighting(cfg highlight.Config) goldmark.Extender {
 		),
 
 		hl.WithWrapperRenderer(func(w util.BufWriter, ctx hl.CodeBlockContext, entering bool) {
-			l, hasLang := ctx.Language()
 			var language string
-			if hasLang {
+			if l, hasLang := ctx.Language(); hasLang {
 				language = string(l)
 			}
 
-			if entering {
-				if !ctx.Highlighted() {
-					w.WriteString(`<pre>`)
-					highlight.WriteCodeTag(w, language)
-					return
+			if ctx.Highlighted() {
+				if entering {
+					writeDivStart(w, ctx)
+				} else {
+					writeDivEnd(w)
 				}
-				w.WriteString(`<div class="highlight">`)
-				return
+			} else {
+				if entering {
+					highlight.WritePreStart(w, language, "")
+				} else {
+					highlight.WritePreEnd(w)
+				}
 			}
-
-			if !ctx.Highlighted() {
-				w.WriteString(`</code></pre>`)
-				return
-			}
-
-			w.WriteString("</div>")
-
 		}),
 	)
+}
+
+func writeDivStart(w util.BufWriter, ctx hl.CodeBlockContext) {
+	w.WriteString(`<div class="highlight`)
+
+	var attributes []ast.Attribute
+	if ctx.Attributes() != nil {
+		attributes = ctx.Attributes().All()
+	}
+
+	if attributes != nil {
+		class, found := ctx.Attributes().GetString("class")
+		if found {
+			w.WriteString(" ")
+			w.Write(util.EscapeHTML(class.([]byte)))
+
+		}
+		_, _ = w.WriteString("\"")
+		renderAttributes(w, true, attributes...)
+	} else {
+		_, _ = w.WriteString("\"")
+	}
+
+	w.WriteString(">")
+}
+
+func writeDivEnd(w util.BufWriter) {
+	w.WriteString("</div>")
 }

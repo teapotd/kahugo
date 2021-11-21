@@ -1,4 +1,4 @@
-// Copyright 2019 The Hugo Authors. All rights reserved.
+// Copyright 2020 The Hugo Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,6 +19,8 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+
+	"github.com/gohugoio/hugo/hugolib"
 
 	"github.com/gohugoio/hugo/modules"
 	"github.com/spf13/cobra"
@@ -69,11 +71,12 @@ Also note that if you configure a positive maxAge for the "modules" file cache, 
 			if all {
 				com, err := c.initConfig(false)
 
-				if err != nil && !moduleNotFoundRe.MatchString(err.Error()) {
+				if err != nil && com == nil {
 					return err
 				}
 
-				_, err = com.hugo().FileCaches.ModulesCache().Prune(true)
+				count, err := com.hugo().FileCaches.ModulesCache().Prune(true)
+				com.logger.Printf("Deleted %d files from module cache.", count)
 				return err
 			}
 			return c.withModsClient(true, func(c *modules.Client) error {
@@ -89,7 +92,6 @@ Also note that if you configure a positive maxAge for the "modules" file cache, 
 }
 
 func (b *commandsBuilder) newModCmd() *modCmd {
-
 	c := &modCmd{}
 
 	const commonUsage = `
@@ -113,6 +115,8 @@ This is not needed if you only operate on modules inside /themes or if you have 
 
 		RunE: nil,
 	}
+
+	cmd.AddCommand(newModNPMCmd(c))
 
 	cmd.AddCommand(
 		&cobra.Command{
@@ -260,7 +264,6 @@ If a module is vendored, that is where Hugo will look for it's dependencies.
 	c.baseBuilderCmd = b.newBuilderCmd(cmd)
 
 	return c
-
 }
 
 func (c *modCmd) withModsClient(failOnMissingConfig bool, f func(*modules.Client) error) error {
@@ -272,8 +275,17 @@ func (c *modCmd) withModsClient(failOnMissingConfig bool, f func(*modules.Client
 	return f(com.hugo().ModulesClient)
 }
 
+func (c *modCmd) withHugo(f func(*hugolib.HugoSites) error) error {
+	com, err := c.initConfig(true)
+	if err != nil {
+		return err
+	}
+
+	return f(com.hugo())
+}
+
 func (c *modCmd) initConfig(failOnNoConfig bool) (*commandeer, error) {
-	com, err := initializeConfig(failOnNoConfig, false, &c.hugoBuilderCommon, c, nil)
+	com, err := initializeConfig(failOnNoConfig, false, false, &c.hugoBuilderCommon, c, nil)
 	if err != nil {
 		return nil, err
 	}

@@ -2,7 +2,6 @@
 title: md5
 linktitle: md5
 description: hashes the given input and returns its MD5 checksum.
-godocref:
 date: 2017-02-01
 publishdate: 2017-02-01
 lastmod: 2017-02-01
@@ -18,8 +17,6 @@ relatedfuncs: [sha]
 deprecated: false
 aliases: []
 ---
-
-
 
 ```
 {{ md5 "Hello world, gophers!" }}

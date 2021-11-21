@@ -33,11 +33,17 @@ To print all images paths in a [Page Bundle]({{< relref "/content-management/org
 
 The `image` resource can also be retrieved from a [global resource]({{< relref "/hugo-pipes/introduction#from-file-to-resource" >}})
 
+```go-html-template
 {{- $image := resources.Get "images/logo.jpg" -}}
+```
 
 ## Image Processing Methods
 
-The `image` resource implements the methods `Resize`, `Fit` and `Fill`, each returning the transformed image using the specified dimensions and processing options. The `image` resource also, since Hugo 0.58, implements the method `Exif` and `Filter`.
+The `image` resource implements the  `Resize`, `Fit`, `Fill`, and `Filter` methods, each returning a transformed image using the specified dimensions and processing options. 
+
+{{% note %}}
+Metadata (EXIF, IPTC, XMP, etc.) is not preserved during image transformation. Use the [`Exif`](#exif) method with the _original_ image to extract EXIF metadata from JPEG or TIFF images.
+{{% /note %}}
 
 ### Resize
 
@@ -98,7 +104,7 @@ Sometimes it can be useful to create the filter chain once and then reuse it:
 
 Provides an [Exif](https://en.wikipedia.org/wiki/Exif) object with metadata about the image.
 
-Note that this is only suported for JPEG and TIFF images, so it's recommended to wrap the access with a `with`, e.g.:
+Note that this is only supported for JPEG and TIFF images, so it's recommended to wrap the access with a `with`, e.g.:
 
 ```go-html-template
 {{ with $img.Exif }}
@@ -128,7 +134,7 @@ Or individually access EXIF data with dot access, e.g.:
 {{ end }}
 ```
 
-Some fields may need to be formatted with [`lang.NumFmt`]({{< relref "functions/numfmt" >}}) function to prevent display like `Aperture: 2.278934289` instead of `Aperture: 2.28`.
+Some fields may need to be formatted with [`lang.FormatNumberCustom`]({{< relref "functions/lang" >}}) function to prevent display like `Aperture: 2.278934289` instead of `Aperture: 2.28`.
 
 #### Exif fields
 
@@ -161,12 +167,30 @@ For color codes, see https://www.google.com/search?q=color+picker
 
 **Note** that you also set a default background color to use, see [Image Processing Config](#image-processing-config).
 
-### JPEG Quality
+### JPEG and WebP Quality
 
-Only relevant for JPEG images, values 1 to 100 inclusive, higher is better. Default is 75.
+Only relevant for JPEG and WebP images, values 1 to 100 inclusive, higher is better. Default is 75.
 
 ```go
 {{ $image.Resize "600x q50" }}
+```
+
+{{< new-in "0.83.0" >}} WebP support was added in Hugo 0.83.0.
+
+### Hint
+
+ {{< new-in "0.83.0" >}}
+
+ {{< new-in "0.83.0" >}}
+
+Hint about what type of image this is. Currently only used when encoding to WebP.
+
+Default value is `photo`.
+
+Valid values are `picture`, `photo`, `drawing`, `icon`, or `text`.
+
+```go
+{{ $image.Resize "600x webp drawing" }}
 ```
 
 ### Rotate
@@ -180,7 +204,10 @@ Rotates an image by the given angle counter-clockwise. The rotation will be perf
 ### Anchor
 
 Only relevant for the `Fill` method. This is useful for thumbnail generation where the main motive is located in, say, the left corner.
-Valid are `Center`, `TopLeft`, `Top`, `TopRight`, `Left`, `Right`, `BottomLeft`, `Bottom`, `BottomRight`.
+
+Valid values are `Smart`, `Center`, `TopLeft`, `Top`, `TopRight`, `Left`, `Right`, `BottomLeft`, `Bottom`, `BottomRight`.
+
+Default value is `Smart`, which uses [Smartcrop](https://github.com/muesli/smartcrop) to determine the best crop.
 
 ```go
 {{ $image.Fill "300x200 BottomLeft" }}
@@ -202,11 +229,13 @@ See https://github.com/disintegration/imaging for more. If you want to trade qua
 
 By default the images is encoded in the source format, but you can set the target format as an option.
 
-Valid values are `jpg`, `png`, `tif`, `bmp`, and `gif`.
+Valid values are `jpg`, `png`, `tif`, `bmp`, `gif` and `webp`.
 
 ```go
 {{ $image.Resize "600x jpg" }}
 ```
+
+{{< new-in "0.83.0" >}} WebP support was added in Hugo 0.83.0.
 
 ## Image Processing Examples
 
@@ -249,8 +278,13 @@ You can configure an `imaging` section in `config.toml` with default image proce
 # See https://github.com/disintegration/imaging
 resampleFilter = "box"
 
-# Default JPEG quality setting. Default is 75.
+# Default JPEG or WebP quality setting. Default is 75.
 quality = 75
+
+# Default hint about what type of image. Currently only used for WebP encoding.
+# Default is "photo".
+# Valid values are "picture", "photo", "drawing", "icon", or "text".
+hint = "photo"
 
 # Anchor used when cropping pictures.
 # Default is "smart" which does Smart Cropping, using https://github.com/muesli/smartcrop
@@ -285,13 +319,11 @@ disableDate = false
 # Hugo extracts the "photo taken where" (GPS latitude and longitude) into
 # .Long and .Lat. Set this to true to turn it off.
 disableLatLong = false
-
-
 ```
 
 ## Smart Cropping of Images
 
-By default, Hugo will use the [Smartcrop](https://github.com/muesli/smartcrop), a library created by [muesli](https://github.com/muesli), when cropping images with `.Fill`. You can set the anchor point manually, but in most cases the smart option will make a good choice. And we will work with the library author to improve this in the future.
+By default, Hugo will use [Smartcrop](https://github.com/muesli/smartcrop), a library created by [muesli](https://github.com/muesli), when cropping images with `.Fill`. You can set the anchor point manually, but in most cases the smart option will make a good choice. And we will work with the library author to improve this in the future.
 
 An example using the sunset image from above:
 

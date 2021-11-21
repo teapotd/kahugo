@@ -39,6 +39,8 @@
   {{ $.Scratch.Set "stylesheet" . }}
   {{end}}
 
+  <meta name="description"
+  content="{{ with .Description }}{{ . }}{{ else }}{{ with .Site.Params.description }}{{ . }}{{ end }}{{ end }}">
 
   {{ block "scripts" . }}
   {{- partial "site-scripts.html" . -}}
@@ -53,9 +55,6 @@
   {{ partial "gtag" . }}
   {{ end }}
 
-
-
-
 </head>
 
 <body class="ma0 sans-serif bg-primary-color-light{{ with getenv "HUGO_ENV" }} {{ . }}{{ end }}">
@@ -66,7 +65,6 @@
   </main>
 
   {{ block "footer" . }}{{ partialCached "site-footer.html" . }}{{ end }}
-
 
 </body>
 

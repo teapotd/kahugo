@@ -10,7 +10,6 @@ menu:
   docs:
     parent: "functions"
 keywords: [urls,strings]
-godocref:
 signature: ["urlize INPUT"]
 hugoversion:
 deprecated: false
@@ -53,8 +52,8 @@ The preceding partial would then output to the rendered page as follows, assumin
 
 {{< output file="/blog/greatest-city/index.html" >}}
 <header>
-    <h1>The World's Greatest City</h1>
-    <div><a href="/locations/chicago-il/">Chicago IL</a></div>
+    <h1>The World&#39;s Greatest City</h1>
+    <div><a href="/locations/chicago-il">Chicago IL</a></div>
     <ul>
         <li>
             <a href="/tags/pizza">pizza</a>
@@ -68,6 +67,7 @@ The preceding partial would then output to the rendered page as follows, assumin
     </ul>
 </header>
 {{< /output >}}
+
 
 
 [singletemplate]: /templates/single-page-templates/

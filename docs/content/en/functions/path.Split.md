@@ -1,7 +1,6 @@
 ---
 title: path.Split
 description: Split path immediately following the final slash.
-godocref:
 date: 2018-11-28
 publishdate: 2018-11-28
 lastmod: 2018-11-28
@@ -25,7 +24,7 @@ If there is no slash in `PATH`, it returns an empty directory and the base is se
 **Note:** On Windows, `PATH` is converted to slash (`/`) separators.
 
 ```
-{{ path.Split "a/news.html" }} → "a/", "news.html"
-{{ path.Split "news.html" }} → "", "news.html"
-{{ path.Split "a/b/c" }} → "a/b/", "c"
+{{ $dirFile := path.Split "a/news.html" }} → $dirFile.Dir → "a/", $dirFile.File → "news.html"
+{{ $dirFile := path.Split "news.html" }} → $dirFile.Dir → "", $dirFile.File → "news.html"
+{{ $dirFile := path.Split "a/b/c" }} → $dirFile.Dir → "a/b/", $dirFile.File →  "c"
 ```

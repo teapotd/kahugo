@@ -20,7 +20,7 @@ import (
 	"github.com/gohugoio/hugo/resources/resource"
 )
 
-// Client for minification of Resource objects. Supported minfiers are:
+// Client for minification of Resource objects. Supported minifiers are:
 // css, html, js, json, svg and xml.
 type Client struct {
 	rs *resources.Spec
@@ -47,9 +47,8 @@ func (t *minifyTransformation) Key() internal.ResourceTransformationKey {
 }
 
 func (t *minifyTransformation) Transform(ctx *resources.ResourceTransformationCtx) error {
-	_ = t.m.Minify(ctx.InMediaType, ctx.To, ctx.From)
 	ctx.AddOutPathIdentifier(".min")
-	return nil
+	return t.m.Minify(ctx.InMediaType, ctx.To, ctx.From)
 }
 
 func (c *Client) Minify(res resources.ResourceTransformer) (resource.Resource, error) {
@@ -57,5 +56,4 @@ func (c *Client) Minify(res resources.ResourceTransformer) (resource.Resource, e
 		rs: c.rs,
 		m:  c.m,
 	})
-
 }

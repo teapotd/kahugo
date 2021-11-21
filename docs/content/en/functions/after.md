@@ -1,7 +1,6 @@
 ---
 title: after
 description: "`after` slices an array to only the items after the <em>N</em>th item."
-godocref:
 date: 2017-02-01
 publishdate: 2017-02-01
 lastmod: 2017-02-01
@@ -62,5 +61,5 @@ You can use `after` in combination with the [`first` function][] and Hugo's [pow
 
 [`first` function]: /functions/first/
 [list/section page]: /templates/section-templates/
-[lists]: /lists/
+[lists]: /templates/lists/#order-content
 [slice]: /functions/slice/

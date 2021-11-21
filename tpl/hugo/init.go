@@ -23,18 +23,16 @@ const name = "hugo"
 
 func init() {
 	f := func(d *deps.Deps) *internal.TemplateFuncsNamespace {
-
 		h := d.Site.Hugo()
 
 		ns := &internal.TemplateFuncsNamespace{
 			Name:    name,
-			Context: func(args ...interface{}) interface{} { return h },
+			Context: func(args ...interface{}) (interface{}, error) { return h, nil },
 		}
 
 		// We just add the Hugo struct as the namespace here. No method mappings.
 
 		return ns
-
 	}
 
 	internal.AddTemplateFuncsNamespace(f)

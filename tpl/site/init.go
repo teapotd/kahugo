@@ -24,11 +24,10 @@ const name = "site"
 
 func init() {
 	f := func(d *deps.Deps) *internal.TemplateFuncsNamespace {
-
 		s := d.Site
 		ns := &internal.TemplateFuncsNamespace{
 			Name:    name,
-			Context: func(args ...interface{}) interface{} { return s },
+			Context: func(args ...interface{}) (interface{}, error) { return s, nil },
 		}
 
 		if s == nil {
@@ -38,7 +37,6 @@ func init() {
 		// We just add the Site as the namespace here. No method mappings.
 
 		return ns
-
 	}
 
 	internal.AddTemplateFuncsNamespace(f)

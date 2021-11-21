@@ -15,12 +15,27 @@ package htesting
 
 import (
 	"math/rand"
+	"os"
+	"regexp"
 	"runtime"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/spf13/afero"
 )
+
+// IsTest reports whether we're running as a test.
+var IsTest bool
+
+func init() {
+	for _, arg := range os.Args {
+		if strings.HasPrefix(arg, "-test.") {
+			IsTest = true
+			break
+		}
+	}
+}
 
 // CreateTempDir creates a temp dir in the given filesystem and
 // returns the dirnam and a func that removes it when done.
@@ -48,13 +63,13 @@ func BailOut(after time.Duration) {
 		runtime.Stack(buf, true)
 		panic(string(buf))
 	})
-
 }
 
-var rnd = rand.New(rand.NewSource(time.Now().UnixNano()))
+// Rnd is used only for testing.
+var Rnd = rand.New(rand.NewSource(time.Now().UnixNano()))
 
-func RandIntn(n int) int {
-	return rnd.Intn(n)
+func RandBool() bool {
+	return Rnd.Intn(2) != 0
 }
 
 // DiffStringSlices returns the difference between two string slices.
@@ -85,4 +100,45 @@ func DiffStringSlices(slice1 []string, slice2 []string) []string {
 // Useful for tests.
 func DiffStrings(s1, s2 string) []string {
 	return DiffStringSlices(strings.Fields(s1), strings.Fields(s2))
+}
+
+// IsCI reports whether we're running in a CI server.
+func IsCI() bool {
+	return (os.Getenv("CI") != "" || os.Getenv("CI_LOCAL") != "") && os.Getenv("CIRCLE_BRANCH") == ""
+}
+
+// IsGitHubAction reports whether we're running in a GitHub Action.
+func IsGitHubAction() bool {
+	return os.Getenv("GITHUB_ACTION") != ""
+}
+
+// SupportsAll reports whether the running system supports all Hugo features,
+// e.g. Asciidoc, Pandoc etc.
+func SupportsAll() bool {
+	return IsGitHubAction()
+}
+
+// GoMinorVersion returns the minor version of the current Go version,
+// e.g. 16 for Go 1.16.
+func GoMinorVersion() int {
+	return extractMinorVersionFromGoTag(runtime.Version())
+}
+
+var goMinorVersionRe = regexp.MustCompile(`go1.(\d*)`)
+
+func extractMinorVersionFromGoTag(tag string) int {
+	// The tag may be on the form go1.17, go1.17.5 go1.17rc2 -- or just a commit hash.
+	match := goMinorVersionRe.FindStringSubmatch(tag)
+
+	if len(match) == 2 {
+		i, err := strconv.Atoi(match[1])
+		if err != nil {
+			return -1
+		}
+		return i
+	}
+
+	// a commit hash, not useful.
+	return -1
+
 }

@@ -16,17 +16,15 @@ package markup
 import (
 	"testing"
 
-	"github.com/spf13/viper"
-
-	"github.com/gohugoio/hugo/markup/converter"
-
 	qt "github.com/frankban/quicktest"
+	"github.com/gohugoio/hugo/config"
+	"github.com/gohugoio/hugo/markup/converter"
 )
 
 func TestConverterRegistry(t *testing.T) {
 	c := qt.New(t)
 
-	r, err := NewConverterProvider(converter.ProviderConfig{Cfg: viper.New()})
+	r, err := NewConverterProvider(converter.ProviderConfig{Cfg: config.New()})
 
 	c.Assert(err, qt.IsNil)
 	c.Assert("goldmark", qt.Equals, r.GetMarkupConfig().DefaultMarkdownHandler)
@@ -42,10 +40,9 @@ func TestConverterRegistry(t *testing.T) {
 
 	checkName("goldmark")
 	checkName("mmark")
-	checkName("asciidoc")
+	checkName("asciidocext")
 	checkName("rst")
 	checkName("pandoc")
 	checkName("org")
 	checkName("blackfriday")
-
 }

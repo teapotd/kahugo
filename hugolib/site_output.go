@@ -17,13 +17,12 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/gohugoio/hugo/config"
 	"github.com/gohugoio/hugo/output"
 	"github.com/gohugoio/hugo/resources/page"
 	"github.com/spf13/cast"
 )
 
-func createDefaultOutputFormats(allFormats output.Formats, cfg config.Provider) map[string]output.Formats {
+func createDefaultOutputFormats(allFormats output.Formats) map[string]output.Formats {
 	rssOut, rssFound := allFormats.GetByName(output.RSSFormat.Name)
 	htmlOut, _ := allFormats.GetByName(output.HTMLFormat.Name)
 	robotsOut, _ := allFormats.GetByName(output.RobotsTxtFormat.Name)
@@ -35,11 +34,11 @@ func createDefaultOutputFormats(allFormats output.Formats, cfg config.Provider) 
 	}
 
 	m := map[string]output.Formats{
-		page.KindPage:         {htmlOut},
-		page.KindHome:         defaultListTypes,
-		page.KindSection:      defaultListTypes,
-		page.KindTaxonomy:     defaultListTypes,
-		page.KindTaxonomyTerm: defaultListTypes,
+		page.KindPage:     {htmlOut},
+		page.KindHome:     defaultListTypes,
+		page.KindSection:  defaultListTypes,
+		page.KindTerm:     defaultListTypes,
+		page.KindTaxonomy: defaultListTypes,
 		// Below are for consistency. They are currently not used during rendering.
 		kindSitemap:   {sitemapOut},
 		kindRobotsTXT: {robotsOut},
@@ -52,19 +51,16 @@ func createDefaultOutputFormats(allFormats output.Formats, cfg config.Provider) 
 	}
 
 	return m
-
 }
 
-func createSiteOutputFormats(allFormats output.Formats, cfg config.Provider, rssDisabled bool) (map[string]output.Formats, error) {
-	defaultOutputFormats := createDefaultOutputFormats(allFormats, cfg)
+func createSiteOutputFormats(allFormats output.Formats, outputs map[string]interface{}, rssDisabled bool) (map[string]output.Formats, error) {
+	defaultOutputFormats := createDefaultOutputFormats(allFormats)
 
-	if !cfg.IsSet("outputs") {
+	if outputs == nil {
 		return defaultOutputFormats, nil
 	}
 
 	outFormats := make(map[string]output.Formats)
-
-	outputs := cfg.GetStringMap("outputs")
 
 	if len(outputs) == 0 {
 		return outFormats, nil
@@ -87,7 +83,6 @@ func createSiteOutputFormats(allFormats output.Formats, cfg config.Provider, rss
 					// This is legacy behaviour. We used to have both
 					// a RSS page kind and output format.
 					continue
-
 				}
 				return nil, fmt.Errorf("failed to resolve output format %q from site config", format)
 			}
@@ -110,5 +105,4 @@ func createSiteOutputFormats(allFormats output.Formats, cfg config.Provider, rss
 	}
 
 	return outFormats, nil
-
 }

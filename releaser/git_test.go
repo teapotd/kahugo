@@ -46,6 +46,15 @@ See #456
 	c.Assert(issues[0], qt.Equals, 123)
 	c.Assert(issues[2], qt.Equals, 543)
 
+	bodyNoIssues := `
+This is a commit message without issue refs.
+
+But it has e #10 to make old regexp confused.
+Streets #20.
+	`
+
+	emptyIssuesList := extractIssues(bodyNoIssues)
+	c.Assert(len(emptyIssuesList), qt.Equals, 0)
 }
 
 func TestGitVersionTagBefore(t *testing.T) {
@@ -66,7 +75,6 @@ func TestTagExists(t *testing.T) {
 	b2, err := tagExists("adfagdsfg")
 	c.Assert(err, qt.IsNil)
 	c.Assert(b2, qt.Equals, false)
-
 }
 
 func skipIfCI(t *testing.T) {

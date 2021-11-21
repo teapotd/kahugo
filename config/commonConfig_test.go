@@ -21,14 +21,12 @@ import (
 	"github.com/gohugoio/hugo/common/types"
 
 	qt "github.com/frankban/quicktest"
-
-	"github.com/spf13/viper"
 )
 
 func TestBuild(t *testing.T) {
 	c := qt.New(t)
 
-	v := viper.New()
+	v := New()
 	v.Set("build", map[string]interface{}{
 		"useResourceCacheWhen": "always",
 	})
@@ -57,7 +55,6 @@ func TestBuild(t *testing.T) {
 	c.Assert(b.UseResourceCache(herrors.ErrFeatureNotAvailable), qt.Equals, false)
 	c.Assert(b.UseResourceCache(errors.New("err")), qt.Equals, false)
 	c.Assert(b.UseResourceCache(nil), qt.Equals, false)
-
 }
 
 func TestServer(t *testing.T) {
@@ -70,15 +67,74 @@ for = "/*.jpg"
 X-Frame-Options = "DENY"
 X-XSS-Protection = "1; mode=block"
 X-Content-Type-Options = "nosniff"
+
+[[server.redirects]]
+from = "/foo/**"
+to = "/foo/index.html"
+status = 200
+
+[[server.redirects]]
+from = "/google/**"
+to = "https://google.com/"
+status = 301
+
+[[server.redirects]]
+from = "/**"
+to = "/default/index.html"
+status = 301
+
+
+
 `, "toml")
 
 	c.Assert(err, qt.IsNil)
 
-	s := DecodeServer(cfg)
+	s, err := DecodeServer(cfg)
+	c.Assert(err, qt.IsNil)
 
-	c.Assert(s.Match("/foo.jpg"), qt.DeepEquals, []types.KeyValueStr{
+	c.Assert(s.MatchHeaders("/foo.jpg"), qt.DeepEquals, []types.KeyValueStr{
 		{Key: "X-Content-Type-Options", Value: "nosniff"},
 		{Key: "X-Frame-Options", Value: "DENY"},
-		{Key: "X-XSS-Protection", Value: "1; mode=block"}})
+		{Key: "X-XSS-Protection", Value: "1; mode=block"},
+	})
 
+	c.Assert(s.MatchRedirect("/foo/bar/baz"), qt.DeepEquals, Redirect{
+		From:   "/foo/**",
+		To:     "/foo/",
+		Status: 200,
+	})
+
+	c.Assert(s.MatchRedirect("/someother"), qt.DeepEquals, Redirect{
+		From:   "/**",
+		To:     "/default/",
+		Status: 301,
+	})
+
+	c.Assert(s.MatchRedirect("/google/foo"), qt.DeepEquals, Redirect{
+		From:   "/google/**",
+		To:     "https://google.com/",
+		Status: 301,
+	})
+
+	// No redirect loop, please.
+	c.Assert(s.MatchRedirect("/default/index.html"), qt.DeepEquals, Redirect{})
+	c.Assert(s.MatchRedirect("/default/"), qt.DeepEquals, Redirect{})
+
+	for _, errorCase := range []string{
+		`[[server.redirects]]
+from = "/**"
+to = "/file"
+status = 301`,
+		`[[server.redirects]]
+from = "/**"
+to = "/foo/file.html"
+status = 301`,
+	} {
+
+		cfg, err := FromConfigString(errorCase, "toml")
+		c.Assert(err, qt.IsNil)
+		_, err = DecodeServer(cfg)
+		c.Assert(err, qt.Not(qt.IsNil))
+
+	}
 }

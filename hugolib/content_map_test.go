@@ -19,7 +19,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/gohugoio/hugo/helpers"
+	"github.com/gohugoio/hugo/common/paths"
 
 	"github.com/gohugoio/hugo/htesting/hqt"
 
@@ -43,7 +43,6 @@ func BenchmarkContentMap(b *testing.B) {
 
 		mfi := fi.(hugofs.FileMetaInfo)
 		return mfi
-
 	}
 
 	createFs := func(fs afero.Fs, lang string) afero.Fs {
@@ -52,10 +51,9 @@ func BenchmarkContentMap(b *testing.B) {
 				meta := fi.Meta()
 				// We have a more elaborate filesystem setup in the
 				// real flow, so simulate this here.
-				meta["lang"] = lang
-				meta["path"] = meta.Filename()
-				meta["classifier"] = files.ClassifyContentFile(fi.Name(), meta.GetOpener())
-
+				meta.Lang = lang
+				meta.Path = meta.Filename
+				meta.Classifier = files.ClassifyContentFile(fi.Name(), meta.OpenFunc)
 			})
 	}
 
@@ -87,7 +85,6 @@ func BenchmarkContentMap(b *testing.B) {
 			b.StartTimer()
 		}
 	})
-
 }
 
 func TestContentMap(t *testing.T) {
@@ -104,7 +101,6 @@ func TestContentMap(t *testing.T) {
 
 		mfi := fi.(hugofs.FileMetaInfo)
 		return mfi
-
 	}
 
 	createFs := func(fs afero.Fs, lang string) afero.Fs {
@@ -113,16 +109,14 @@ func TestContentMap(t *testing.T) {
 				meta := fi.Meta()
 				// We have a more elaborate filesystem setup in the
 				// real flow, so simulate this here.
-				meta["lang"] = lang
-				meta["path"] = meta.Filename()
-				meta["classifier"] = files.ClassifyContentFile(fi.Name(), meta.GetOpener())
-				meta["translationBaseName"] = helpers.Filename(fi.Name())
-
+				meta.Lang = lang
+				meta.Path = meta.Filename
+				meta.TranslationBaseName = paths.Filename(fi.Name())
+				meta.Classifier = files.ClassifyContentFile(fi.Name(), meta.OpenFunc)
 			})
 	}
 
 	c.Run("AddFiles", func(c *qt.C) {
-
 		memfs := afero.NewMemMapFs()
 
 		fsl := func(lang string) afero.Fs {
@@ -133,7 +127,7 @@ func TestContentMap(t *testing.T) {
 
 		header := writeFile(c, fs, "blog/a/index.md", "page")
 
-		c.Assert(header.Meta().Lang(), qt.Equals, "en")
+		c.Assert(header.Meta().Lang, qt.Equals, "en")
 
 		resources := []hugofs.FileMetaInfo{
 			writeFile(c, fs, "blog/a/b/data.json", "data"),
@@ -155,19 +149,19 @@ func TestContentMap(t *testing.T) {
 
 		expect := `
           Tree 0:
-              	/blog__hb_/a__hl_
-              	/blog__hb_/b/c__hl_
+              	/blog/__hb_a__hl_
+              	/blog/__hb_b/c__hl_
               Tree 1:
-              	/blog
+              	/blog/
               Tree 2:
-              	/blog__hb_/a__hl_b/data.json
-              	/blog__hb_/a__hl_logo.png
-              	/blog__hl_sectiondata.json
-              en/pages/blog__hb_/a__hl_|f:blog/a/index.md
+              	/blog/__hb_a__hl_b/data.json
+              	/blog/__hb_a__hl_logo.png
+              	/blog/__hl_sectiondata.json
+              en/pages/blog/__hb_a__hl_|f:blog/a/index.md
               	 - R: blog/a/b/data.json
               	 - R: blog/a/logo.png
-              en/pages/blog__hb_/b/c__hl_|f:blog/b/c/index.md
-              en/sections/blog|f:blog/_index.md
+              en/pages/blog/__hb_b/c__hl_|f:blog/b/c/index.md
+              en/sections/blog/|f:blog/_index.md
               	 - P: blog/a/index.md
               	 - P: blog/b/c/index.md
               	 - R: blog/sectiondata.json
@@ -194,24 +188,24 @@ func TestContentMap(t *testing.T) {
 
 		expect = `
 			 Tree 0:
-              	/blog__hb_/a__hl_
-              	/blog__hb_/b/c__hl_
+              	/blog/__hb_a__hl_
+              	/blog/__hb_b/c__hl_
               Tree 1:
-              	/blog
+              	/blog/
               Tree 2:
-              	/blog__hb_/a__hl_b/data.json
-              	/blog__hb_/a__hl_b/data2.json
-              	/blog__hb_/a__hl_logo.png
-              	/blog__hb_/b/c__hl_d/data3.json
-              	/blog__hl_sectiondata.json
-              	/blog__hl_sectiondata2.json
-              en/pages/blog__hb_/a__hl_|f:blog/a/index.md
+              	/blog/__hb_a__hl_b/data.json
+              	/blog/__hb_a__hl_b/data2.json
+              	/blog/__hb_a__hl_logo.png
+              	/blog/__hb_b/c__hl_d/data3.json
+              	/blog/__hl_sectiondata.json
+              	/blog/__hl_sectiondata2.json
+              en/pages/blog/__hb_a__hl_|f:blog/a/index.md
               	 - R: blog/a/b/data.json
               	 - R: blog/a/b/data2.json
               	 - R: blog/a/logo.png
-              en/pages/blog__hb_/b/c__hl_|f:blog/b/c/index.md
+              en/pages/blog/__hb_b/c__hl_|f:blog/b/c/index.md
               	 - R: blog/b/c/d/data3.json
-              en/sections/blog|f:blog/_index.md
+              en/sections/blog/|f:blog/_index.md
               	 - P: blog/a/index.md
               	 - P: blog/b/c/index.md
               	 - R: blog/sectiondata.json
@@ -226,26 +220,26 @@ func TestContentMap(t *testing.T) {
 
 		c.Assert(m.testDump(), hqt.IsSameString, `
 		 Tree 0:
-              	/blog__hb_/a__hl_
-              	/blog__hb_/b/c__hl_
-              	/blog__hb_/b__hl_
+              	/blog/__hb_a__hl_
+              	/blog/__hb_b/c__hl_
+              	/blog/__hb_b__hl_
               Tree 1:
-              	/blog
+              	/blog/
               Tree 2:
-              	/blog__hb_/a__hl_b/data.json
-              	/blog__hb_/a__hl_b/data2.json
-              	/blog__hb_/a__hl_logo.png
-              	/blog__hb_/b/c__hl_d/data3.json
-              	/blog__hl_sectiondata.json
-              	/blog__hl_sectiondata2.json
-              en/pages/blog__hb_/a__hl_|f:blog/a/index.md
+              	/blog/__hb_a__hl_b/data.json
+              	/blog/__hb_a__hl_b/data2.json
+              	/blog/__hb_a__hl_logo.png
+              	/blog/__hb_b/c__hl_d/data3.json
+              	/blog/__hl_sectiondata.json
+              	/blog/__hl_sectiondata2.json
+              en/pages/blog/__hb_a__hl_|f:blog/a/index.md
               	 - R: blog/a/b/data.json
               	 - R: blog/a/b/data2.json
               	 - R: blog/a/logo.png
-              en/pages/blog__hb_/b/c__hl_|f:blog/b/c/index.md
+              en/pages/blog/__hb_b/c__hl_|f:blog/b/c/index.md
               	 - R: blog/b/c/d/data3.json
-              en/pages/blog__hb_/b__hl_|f:blog/b.md
-              en/sections/blog|f:blog/_index.md
+              en/pages/blog/__hb_b__hl_|f:blog/b.md
+              en/sections/blog/|f:blog/_index.md
               	 - P: blog/a/index.md
               	 - P: blog/b/c/index.md
               	 - P: blog/b.md
@@ -254,11 +248,9 @@ func TestContentMap(t *testing.T) {
              
        
 				`, qt.Commentf(m.testDump()))
-
 	})
 
 	c.Run("CreateMissingNodes", func(c *qt.C) {
-
 		memfs := afero.NewMemMapFs()
 
 		fsl := func(lang string) afero.Fs {
@@ -280,24 +272,23 @@ func TestContentMap(t *testing.T) {
 		c.Assert(got, hqt.IsSameString, `
 			
 			 Tree 0:
-              	/__hb_/bundle__hl_
-              	/blog__hb_/a__hl_
-              	/blog__hb_/page__hl_
+              	/__hb_bundle__hl_
+              	/blog/__hb_a__hl_
+              	/blog/__hb_page__hl_
               Tree 1:
               	/
-              	/blog
+              	/blog/
               Tree 2:
-              en/pages/__hb_/bundle__hl_|f:bundle/index.md
-              en/pages/blog__hb_/a__hl_|f:blog/a/index.md
-              en/pages/blog__hb_/page__hl_|f:blog/page.md
+              en/pages/__hb_bundle__hl_|f:bundle/index.md
+              en/pages/blog/__hb_a__hl_|f:blog/a/index.md
+              en/pages/blog/__hb_page__hl_|f:blog/page.md
               en/sections/
               	 - P: bundle/index.md
-              en/sections/blog
+              en/sections/blog/
               	 - P: blog/a/index.md
               	 - P: blog/page.md
             
 			`, qt.Commentf(got))
-
 	})
 
 	c.Run("cleanKey", func(c *qt.C) {
@@ -309,15 +300,12 @@ func TestContentMap(t *testing.T) {
 			{filepath.FromSlash("/a/b/"), "/a/b"},
 			{"/a//b/", "/a/b"},
 		} {
-
 			c.Assert(cleanTreeKey(test.in), qt.Equals, test.expected)
-
 		}
 	})
 }
 
 func TestContentMapSite(t *testing.T) {
-
 	b := newTestSitesBuilder(t)
 
 	pageTempl := `
@@ -435,9 +423,9 @@ Draft5: {{ if (.Site.GetPage "blog/draftsection/sub/page") }}FOUND{{ end }}|
         
       Home: Hugo Home|/|2019-06-08|Current Section: |Resources: 
         Blog Section: Blogs|/blog/|2019-06-08|Current Section: blog|Resources: 
-        Blog Sub Section: Page 3|/blog/subsection/|2019-06-03|Current Section: blog/subsection|Resources: json: /blog/subsection/subdata.json|
+        Blog Sub Section: Page 3|/blog/subsection/|2019-06-03|Current Section: blog/subsection|Resources: application: /blog/subsection/subdata.json|
         Page: Page 1|/blog/page1/|2019-06-01|Current Section: blog|Resources: 
-        Bundle: Page 12|/blog/bundle/|0001-01-01|Current Section: blog|Resources: json: /blog/bundle/data.json|page: |
+        Bundle: Page 12|/blog/bundle/|0001-01-01|Current Section: blog|Resources: application: /blog/bundle/data.json|page: |
         IsDescendant: true: true true: true true: true true: true true: true true: true false: false
         IsAncestor: true: true true: true true: true true: true true: true true: true true: true false: false false: false  false: false
         IsDescendant overlap1: false: false
@@ -451,8 +439,8 @@ Draft5: {{ if (.Site.GetPage "blog/draftsection/sub/page") }}FOUND{{ end }}|
         Pages: /blog/page3/|/blog/subsection/|/blog/page2/|/blog/page1/|/blog/bundle/|
         Sections: /blog/|/docs/|
         Categories: /categories/funny/; funny; 11|
-        Category Terms:  taxonomyTerm: /categories/funny/; funny; 11|
- 		Category Funny:  taxonomy; funny: /blog/subsection/page4/;|/blog/page3/;|/blog/subsection/;|/blog/page2/;|/blog/page1/;|/blog/subsection/page5/;|/docs/page6/;|/blog/bundle/;|;|
+        Category Terms:  taxonomy: /categories/funny/; funny; 11|
+ 		Category Funny:  term; funny: /blog/subsection/page4/;|/blog/page3/;|/blog/subsection/;|/blog/page2/;|/blog/page1/;|/blog/subsection/page5/;|/docs/page6/;|/blog/bundle/;|;|
  		Pag Num Pages: 7
         Pag Blog Num Pages: 4
         Blog Num RegularPages: 4

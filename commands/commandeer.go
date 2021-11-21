@@ -16,23 +16,21 @@ package commands
 import (
 	"bytes"
 	"errors"
+	"io/ioutil"
+	"os"
+	"path/filepath"
+	"regexp"
 	"sync"
+	"time"
 
 	hconfig "github.com/gohugoio/hugo/config"
 
 	"golang.org/x/sync/semaphore"
 
-	"io/ioutil"
-
 	"github.com/gohugoio/hugo/common/herrors"
 	"github.com/gohugoio/hugo/common/hugo"
 
 	jww "github.com/spf13/jwalterweatherman"
-
-	"os"
-	"path/filepath"
-	"regexp"
-	"time"
 
 	"github.com/gohugoio/hugo/common/loggers"
 	"github.com/gohugoio/hugo/config"
@@ -60,8 +58,13 @@ type commandeerHugoState struct {
 type commandeer struct {
 	*commandeerHugoState
 
-	logger       *loggers.Logger
+	logger       loggers.Logger
 	serverConfig *config.Server
+
+	// Loading state
+	mustHaveConfigFile bool
+	failOnInitErr      bool
+	running            bool
 
 	// Currently only set when in "fast render mode". But it seems to
 	// be fast enough that we could maybe just add it for all server modes.
@@ -112,7 +115,7 @@ func (c *commandeerHugoState) hugo() *hugolib.HugoSites {
 }
 
 func (c *commandeer) errCount() int {
-	return int(c.logger.ErrorCounter.Count())
+	return int(c.logger.LogCounters().ErrorCounter.Count())
 }
 
 func (c *commandeer) getErrorWithContext() interface{} {
@@ -155,8 +158,7 @@ func (c *commandeer) initFs(fs *hugofs.Fs) error {
 	return nil
 }
 
-func newCommandeer(mustHaveConfigFile, running bool, h *hugoBuilderCommon, f flagsToConfigHandler, cfgInit func(c *commandeer) error, subCmdVs ...*cobra.Command) (*commandeer, error) {
-
+func newCommandeer(mustHaveConfigFile, failOnInitErr, running bool, h *hugoBuilderCommon, f flagsToConfigHandler, cfgInit func(c *commandeer) error, subCmdVs ...*cobra.Command) (*commandeer, error) {
 	var rebuildDebouncer func(f func())
 	if running {
 		// The time value used is tested with mass content replacements in a fairly big Hugo site.
@@ -178,11 +180,17 @@ func newCommandeer(mustHaveConfigFile, running bool, h *hugoBuilderCommon, f fla
 		visitedURLs:         types.NewEvictingStringQueue(10),
 		debounce:            rebuildDebouncer,
 		fullRebuildSem:      semaphore.NewWeighted(1),
+
+		// Init state
+		mustHaveConfigFile: mustHaveConfigFile,
+		failOnInitErr:      failOnInitErr,
+		running:            running,
+
 		// This will be replaced later, but we need something to log to before the configuration is read.
 		logger: loggers.NewLogger(jww.LevelWarn, jww.LevelError, out, ioutil.Discard, running),
 	}
 
-	return c, c.loadConfig(mustHaveConfigFile, running)
+	return c, c.loadConfig()
 }
 
 type fileChangeDetector struct {
@@ -247,8 +255,7 @@ func (f *fileChangeDetector) PrepareNew() {
 	f.current = make(map[string]string)
 }
 
-func (c *commandeer) loadConfig(mustHaveConfigFile, running bool) error {
-
+func (c *commandeer) loadConfig() error {
 	if c.DepsCfg == nil {
 		c.DepsCfg = &deps.DepsCfg{}
 	}
@@ -260,7 +267,7 @@ func (c *commandeer) loadConfig(mustHaveConfigFile, running bool) error {
 
 	cfg := c.DepsCfg
 	c.configured = false
-	cfg.Running = running
+	cfg.Running = c.running
 
 	var dir string
 	if c.h.source != "" {
@@ -274,10 +281,9 @@ func (c *commandeer) loadConfig(mustHaveConfigFile, running bool) error {
 		sourceFs = c.DepsCfg.Fs.Source
 	}
 
-	environment := c.h.getEnvironment(running)
+	environment := c.h.getEnvironment(c.running)
 
 	doWithConfig := func(cfg config.Provider) error {
-
 		if c.ftch != nil {
 			c.ftch.flagsToConfig(cfg)
 		}
@@ -308,14 +314,22 @@ func (c *commandeer) loadConfig(mustHaveConfigFile, running bool) error {
 			WorkingDir:   dir,
 			Filename:     c.h.cfgFile,
 			AbsConfigDir: c.h.getConfigDir(dir),
-			Environ:      os.Environ(),
-			Environment:  environment},
+			Environment:  environment,
+		},
 		cfgSetAndInit,
 		doWithConfig)
 
-	if err != nil && mustHaveConfigFile {
-		return err
-	} else if mustHaveConfigFile && len(configFiles) == 0 {
+	if err != nil {
+		// We should improve the error handling here,
+		// but with hugo mod init and similar there is a chicken and egg situation
+		// with modules already configured in config.toml, so ignore those errors.
+		if c.mustHaveConfigFile || (c.failOnInitErr && !moduleNotFoundRe.MatchString(err.Error())) {
+			return err
+		} else {
+			// Just make it a warning.
+			c.logger.Warnln(err)
+		}
+	} else if c.mustHaveConfigFile && len(configFiles) == 0 {
 		return hugolib.ErrNoConfigFile
 	}
 
@@ -327,7 +341,7 @@ func (c *commandeer) loadConfig(mustHaveConfigFile, running bool) error {
 	}
 
 	// Set some commonly used flags
-	c.doLiveReload = running && !c.Cfg.GetBool("disableLiveReload")
+	c.doLiveReload = c.running && !c.Cfg.GetBool("disableLiveReload")
 	c.fastRenderMode = c.doLiveReload && !c.Cfg.GetBool("disableFastRender")
 	c.showErrorInBrowser = c.doLiveReload && !c.Cfg.GetBool("disableBrowserError")
 
@@ -339,14 +353,17 @@ func (c *commandeer) loadConfig(mustHaveConfigFile, running bool) error {
 		}
 	}
 
-	logger, err := c.createLogger(config, running)
+	logger, err := c.createLogger(config)
 	if err != nil {
 		return err
 	}
 
 	cfg.Logger = logger
 	c.logger = logger
-	c.serverConfig = hconfig.DecodeServer(cfg.Cfg)
+	c.serverConfig, err = hconfig.DecodeServer(cfg.Cfg)
+	if err != nil {
+		return err
+	}
 
 	createMemFs := config.GetBool("renderToMemory")
 
@@ -386,7 +403,7 @@ func (c *commandeer) loadConfig(mustHaveConfigFile, running bool) error {
 		}
 
 		// To debug hard-to-find path issues.
-		//fs.Destination = hugofs.NewStacktracerFs(fs.Destination, `fr/fr`)
+		// fs.Destination = hugofs.NewStacktracerFs(fs.Destination, `fr/fr`)
 
 		err = c.initFs(fs)
 		if err != nil {
@@ -396,10 +413,13 @@ func (c *commandeer) loadConfig(mustHaveConfigFile, running bool) error {
 
 		var h *hugolib.HugoSites
 
-		h, err = hugolib.NewHugoSites(*c.DepsCfg)
+		var createErr error
+		h, createErr = hugolib.NewHugoSites(*c.DepsCfg)
+		if h == nil || c.failOnInitErr {
+			err = createErr
+		}
 		c.hugoSites = h
 		close(c.created)
-
 	})
 
 	if err != nil {
@@ -412,8 +432,5 @@ func (c *commandeer) loadConfig(mustHaveConfigFile, running bool) error {
 	}
 	config.Set("cacheDir", cacheDir)
 
-	cfg.Logger.INFO.Println("Using config file:", config.ConfigFileUsed())
-
 	return nil
-
 }

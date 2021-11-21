@@ -16,6 +16,8 @@ package org
 import (
 	"testing"
 
+	"github.com/gohugoio/hugo/config"
+
 	"github.com/gohugoio/hugo/common/loggers"
 
 	"github.com/gohugoio/hugo/markup/converter"
@@ -25,11 +27,14 @@ import (
 
 func TestConvert(t *testing.T) {
 	c := qt.New(t)
-	p, err := Provider.New(converter.ProviderConfig{Logger: loggers.NewErrorLogger()})
+	p, err := Provider.New(converter.ProviderConfig{
+		Logger: loggers.NewErrorLogger(),
+		Cfg:    config.New(),
+	})
 	c.Assert(err, qt.IsNil)
 	conv, err := p.New(converter.DocumentContext{})
 	c.Assert(err, qt.IsNil)
 	b, err := conv.Convert(converter.RenderContext{Src: []byte("testContent")})
 	c.Assert(err, qt.IsNil)
-	c.Assert(string(b.Bytes()), qt.Equals, "<p>\ntestContent\n</p>\n")
+	c.Assert(string(b.Bytes()), qt.Equals, "<p>testContent</p>\n")
 }

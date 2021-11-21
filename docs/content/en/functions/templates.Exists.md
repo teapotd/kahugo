@@ -2,7 +2,6 @@
 title: templates.Exists
 linktitle: ""
 description: "Checks whether a template file exists under the given path relative to the `layouts` directory."
-godocref: ""
 date: 2018-11-01
 publishdate: 2018-11-01
 lastmod: 2018-11-01
@@ -22,7 +21,7 @@ toc: false
 deprecated: false
 ---
 
-A template file is any file living below the `layouts` directories of either the project or any of its theme components incudling partials and shortcodes.
+A template file is any file living below the `layouts` directories of either the project or any of its theme components including partials and shortcodes.
 
 The function is particularly handy with dynamic path. The following example ensures the build will not break on a `.Type` missing its dedicated `header` partial.
 

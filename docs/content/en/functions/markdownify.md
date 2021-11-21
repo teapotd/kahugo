@@ -2,7 +2,6 @@
 title: markdownify
 linktitle: markdownify
 description: Runs the provided string through the Markdown processor.
-godocref:
 date: 2017-02-01
 publishdate: 2017-02-01
 lastmod: 2017-02-01
@@ -23,3 +22,8 @@ aliases: []
 ```
 {{ .Title | markdownify }}
 ```
+
+*Note*: if you need [Render Hooks][], which `markdownify` doesn't currently
+support, use [.RenderString](/functions/renderstring/) instead.
+
+[Render Hooks]: /getting-started/configuration-markup/#markdown-render-hooks

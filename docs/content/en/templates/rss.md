@@ -22,14 +22,14 @@ toc: true
 See [Template Lookup Order](/templates/lookup-order/) for the complete reference.
 
 {{% note "Hugo Ships with an RSS Template" %}}
-Hugo ships with its own [RSS 2.0 template](#the-embedded-rss-xml). The embedded template will be sufficient for most use cases.
+Hugo ships with its own [RSS 2.0 template](#the-embedded-rssxml). The embedded template will be sufficient for most use cases.
 {{% /note %}}
 
 RSS pages are of the type `Page` and have all the [page variables](/variables/page/) available to use in the templates.
 
 ### Section RSS
 
-A [section’s][section] RSS will be rendered at `/<SECTION>/index.xml` (e.g., https://spf13.com/project/index.xml).
+A [section’s][section] RSS will be rendered at `/<SECTION>/index.xml` (e.g., [https://spf13.com/project/index.xml](https://spf13.com/project/index.xml)).
 
 Hugo provides the ability for you to define any RSS type you wish and can have different RSS files for each section and taxonomy.
 
@@ -43,15 +43,15 @@ The table below shows the RSS template lookup order for the different page kinds
 
 By default, Hugo will create an unlimited number of RSS entries. You can limit the number of articles included in the built-in RSS templates by assigning a numeric value to `rssLimit:` field in your project's [`config` file][config].
 
-The following values will also be included in the RSS output if specified in your site’s configuration:
+The following values will also be included in the RSS output if specified:
 
-```toml
+{{< code-toggle file="config" >}}
 languageCode = "en-us"
 copyright = "This work is licensed under a Creative Commons Attribution-ShareAlike 4.0 International License."
 
 [author]
     name = "My Name Here"
-```
+{{< /code-toggle >}}
 
 ## The Embedded rss.xml
 

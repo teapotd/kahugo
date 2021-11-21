@@ -72,7 +72,7 @@ Hugo provides a sensible default configuration of Related Content, but you can f
 
 Without any `related` configuration set on the project, Hugo's Related Content methods will use the following.
 
-```yaml
+{{< code-toggle file="config" >}}
 related:
   threshold: 80
   includeNewer: false
@@ -82,7 +82,9 @@ related:
     weight: 100
   - name: date
     weight: 10
-```
+{{< /code-toggle >}}
+
+Note that if you have configured `tags` as a taxonomy, `tags` will also be added to the default configuration above with the weight of `80`.
 
 Custom configuration should be set using the same syntax.
 
@@ -121,7 +123,7 @@ toLower
 
 This feature has been in the back log and requested by many for a long time. The development got this recent kick start from this Twitter thread:
 
-{{< tweet 898398437527363585 >}}
+{{< tweet user="scott_lowe" id="898398437527363585" >}}
 
 Scott S. Lowe removed the "Related Content" section built using the `intersect` template function on tags, and the build time dropped from 30 seconds to less than 2 seconds on his 1700 content page sized blog.
 

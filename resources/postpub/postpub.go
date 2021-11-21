@@ -39,7 +39,11 @@ type PostPublishedResource interface {
 
 const (
 	PostProcessPrefix = "__h_pp_l1"
-	PostProcessSuffix = "__e"
+
+	// The suffix has an '=' in it to prevent the minifier to remove any enclosing
+	// quoutes around the attribute values.
+	// See issue #8884.
+	PostProcessSuffix = "__e="
 )
 
 func NewPostPublishResource(id int, r resource.Resource) PostPublishedResource {
@@ -108,7 +112,6 @@ func (r *PostPublishResource) GetFieldString(pattern string) (string, bool) {
 	default:
 		panic(fmt.Sprintf("unknown field accessor %q", fieldAccessor))
 	}
-
 }
 
 func (r *PostPublishResource) fieldToString(receiver interface{}, path string) string {
