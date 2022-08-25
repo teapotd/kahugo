@@ -29,7 +29,7 @@ You still need to include the KaTeX CSS in your HTML templates.
 
 Like the Hugo extended build, you need cgo.
 ```
-go build
+CGO_ENABLED=1 go install --tags extended
 ```
 
 ## Changes
@@ -37,20 +37,20 @@ The changes are pretty small, so here's a complete diff of the repo, minus go.mo
 
 ```diff
 diff --git a/markup/goldmark/convert.go b/markup/goldmark/convert.go
-index d4c3533..b94087e 100644
+index ba85831b..3cc5b07e 100644
 --- a/markup/goldmark/convert.go
 +++ b/markup/goldmark/convert.go
-@@ -39,6 +39,8 @@ import (
+@@ -31,6 +31,8 @@ import (
+ 	"github.com/yuin/goldmark/renderer"
  	"github.com/yuin/goldmark/renderer/html"
  	"github.com/yuin/goldmark/text"
- 	"github.com/yuin/goldmark/util"
 +
 +	"github.com/graemephi/goldmark-qjs-katex"
  )
  
  // Provider is the package entry point.
-@@ -143,6 +145,10 @@ func newMarkdown(pcfg converter.ProviderConfig) goldmark.Markdown {
- 		parserOptions = append(parserOptions, parser.WithAttribute())
+@@ -136,6 +138,10 @@ func newMarkdown(pcfg converter.ProviderConfig) goldmark.Markdown {
+ 		extensions = append(extensions, attributes.New())
  	}
  
 +	if cfg.Katex.Enable {
@@ -61,21 +61,21 @@ index d4c3533..b94087e 100644
  		goldmark.WithExtensions(
  			extensions...,
 diff --git a/markup/goldmark/goldmark_config/config.go b/markup/goldmark/goldmark_config/config.go
-index af33e03..f4d9a10 100644
+index a3238091..d0f9a217 100644
 --- a/markup/goldmark/goldmark_config/config.go
 +++ b/markup/goldmark/goldmark_config/config.go
-@@ -39,6 +39,10 @@ var Default = Config{
- 		AutoHeadingIDType: AutoHeadingIDTypeGitHub,
- 		Attribute:         true,
+@@ -43,6 +43,10 @@ var Default = Config{
+ 			Block: false,
+ 		},
  	},
 +	Katex: Katex{
-+		Enable:   true,
++		Enable:   false,
 +		Warnings: false,
 +	},
  }
  
  // Config configures Goldmark.
-@@ -46,6 +50,7 @@ type Config struct {
+@@ -50,6 +54,7 @@ type Config struct {
  	Renderer   Renderer
  	Parser     Parser
  	Extensions Extensions
@@ -83,9 +83,9 @@ index af33e03..f4d9a10 100644
  }
  
  type Extensions struct {
-@@ -84,3 +89,10 @@ type Parser struct {
- 	// Enables custom attributes.
- 	Attribute bool
+@@ -96,3 +101,10 @@ type ParserAttribute struct {
+ 	// Enables custom attributeds for blocks.
+ 	Block bool
  }
 +
 +type Katex struct {
