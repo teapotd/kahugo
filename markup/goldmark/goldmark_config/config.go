@@ -44,7 +44,7 @@ var Default = Config{
 		},
 	},
 	Katex: Katex{
-		Enable:   true,
+		Enable:   false,
 		Warnings: false,
 	},
 }
