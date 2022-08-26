@@ -127,4 +127,6 @@ require (
 
 replace github.com/gohugoio/hugo => ./
 
+replace github.com/graemephi/goldmark-qjs-katex => github.com/teapotd/goldmark-qjs-katex v0.4.0
+
 go 1.18
